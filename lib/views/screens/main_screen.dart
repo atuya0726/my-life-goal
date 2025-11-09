@@ -3,6 +3,7 @@ import '../../utils/design_tokens.dart';
 import 'mandala_chart_screen.dart';
 import 'task_list_screen.dart';
 import 'focus_task_screen.dart';
+import 'notification_settings_screen.dart';
 
 /// メイン画面（タブナビゲーション）
 class MainScreen extends StatefulWidget {
@@ -32,7 +33,23 @@ class _MainScreenState extends State<MainScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_titles[_selectedIndex]),
-        actions: _selectedIndex == 0 ? _buildMandalaChartActions() : null,
+        actions: [
+          // 通知設定ボタン
+          IconButton(
+            icon: const Icon(Icons.notifications_outlined, size: 20),
+            tooltip: '通知設定',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const NotificationSettingsScreen(),
+                ),
+              );
+            },
+          ),
+          // マンダラチャートのメニュー
+          if (_selectedIndex == 0) ..._buildMandalaChartActions(),
+        ],
       ),
       body: _screens[_selectedIndex],
       bottomNavigationBar: NavigationBar(

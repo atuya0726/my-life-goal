@@ -4,10 +4,12 @@ import '../../providers/providers.dart';
 import '../../utils/design_tokens.dart';
 import '../widgets/mandala_overview_widget.dart';
 import '../widgets/mandala_detail_widget.dart';
+import '../widgets/mandala_full_overview_widget.dart';
 
 /// 表示モード
 enum DisplayMode {
-  overview, // 全体表示（中心3×3）
+  fullOverview, // 全体表示（27×27）
+  overview, // 中心表示（中心3×3）
   detail, // 詳細表示（選択された中目標の3×3）
 }
 
@@ -45,50 +47,129 @@ class _MandalaChartScreenState extends ConsumerState<MandalaChartScreen> {
           )
         : Column(
             children: [
-              // 詳細表示の時は戻るボタンを表示
-              if (_displayMode == DisplayMode.detail)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: DesignTokens.spaceXs,
-                    vertical: DesignTokens.spaceXs,
-                  ),
-                  child: Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.arrow_back),
-                        onPressed: _goBackToOverview,
-                        tooltip: '全体表示に戻る',
-                      ),
-                      const Text(
-                        '小目標を入力',
-                        style: TextStyle(
-                          fontSize: DesignTokens.fontSizeBodyLarge,
-                          fontWeight: DesignTokens.fontWeightSemibold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              // ヘッダー（戻るボタンと切り替えボタン）
+              _buildHeader(),
               // エラーメッセージ
               if (state.errorMessage != null) _buildErrorBanner(state),
               // マンダラチャート表示
               Expanded(
-                child: Center(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(DesignTokens.spaceMd),
-                    child: AnimatedSwitcher(
-                      duration: DesignTokens.durationNormal,
-                      child: _displayMode == DisplayMode.overview
-                          ? _buildOverviewMode(state)
-                          : _buildDetailMode(state),
-                    ),
-                  ),
-                ),
+                child: _displayMode == DisplayMode.fullOverview
+                    ? Stack(
+                        children: [
+                          Center(
+                            child: AnimatedSwitcher(
+                              duration: DesignTokens.durationNormal,
+                              child: _buildFullOverviewMode(state),
+                            ),
+                          ),
+                          // ヒントメッセージ
+                          Positioned(
+                            bottom: DesignTokens.spaceMd,
+                            left: DesignTokens.spaceMd,
+                            right: DesignTokens.spaceMd,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: DesignTokens.spaceSm + DesignTokens.spaceXs,
+                                vertical: DesignTokens.spaceSm,
+                              ),
+                              decoration: BoxDecoration(
+                                color: DesignTokens.foregroundPrimary.withOpacity(0.9),
+                                borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
+                                boxShadow: DesignTokens.shadowMd,
+                              ),
+                              child: const Text(
+                                'ピンチで拡大・縮小 / ドラッグで移動 / タップで詳細表示',
+                                style: TextStyle(
+                                  fontSize: DesignTokens.fontSizeBodySmall,
+                                  color: DesignTokens.backgroundSecondary,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                        ],
+                      )
+                    : Center(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.all(DesignTokens.spaceMd),
+                          child: AnimatedSwitcher(
+                            duration: DesignTokens.durationNormal,
+                            child: _displayMode == DisplayMode.overview
+                                ? _buildOverviewMode(state)
+                                : _buildDetailMode(state),
+                          ),
+                        ),
+                      ),
               ),
             ],
           );
   }
 
+
+  /// ヘッダーを構築
+  Widget _buildHeader() {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: DesignTokens.spaceXs,
+        vertical: DesignTokens.spaceXs,
+      ),
+      child: Row(
+        children: [
+          // 戻るボタン
+          if (_displayMode == DisplayMode.detail)
+            IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: _goBackToOverview,
+              tooltip: '全体表示に戻る',
+            ),
+          if (_displayMode == DisplayMode.fullOverview)
+            IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () {
+                setState(() {
+                  _displayMode = DisplayMode.overview;
+                });
+              },
+              tooltip: '中心表示に戻る',
+            ),
+          // タイトル
+          if (_displayMode == DisplayMode.detail)
+            const Text(
+              '小目標を入力',
+              style: TextStyle(
+                fontSize: DesignTokens.fontSizeBodyLarge,
+                fontWeight: DesignTokens.fontWeightSemibold,
+              ),
+            ),
+          const Spacer(),
+          // JUST DO IT!
+          if (_displayMode == DisplayMode.overview)
+            Text(
+              'JUST DO IT!',
+              style: TextStyle(
+                fontSize: DesignTokens.fontSizeBodySmall,
+                fontWeight: DesignTokens.fontWeightBold,
+                color: DesignTokens.foregroundSecondary.withOpacity(0.5),
+                letterSpacing: 0.5,
+              ),
+            ),
+          if (_displayMode == DisplayMode.overview)
+            const SizedBox(width: DesignTokens.spaceSm),
+          // 全体表示切り替えボタン
+          if (_displayMode == DisplayMode.overview)
+            IconButton(
+              icon: const Icon(Icons.grid_view),
+              onPressed: () {
+                setState(() {
+                  _displayMode = DisplayMode.fullOverview;
+                });
+              },
+              tooltip: '全体表示（27×27）',
+            ),
+        ],
+      ),
+    );
+  }
 
   /// エラーバナーを構築
   Widget _buildErrorBanner(state) {
@@ -118,7 +199,16 @@ class _MandalaChartScreenState extends ConsumerState<MandalaChartScreen> {
   }
 
 
-  /// 全体表示モード
+  /// 全体表示モード（27×27）
+  Widget _buildFullOverviewMode(state) {
+    return MandalaFullOverviewWidget(
+      key: const ValueKey('fullOverview'),
+      chart: state.chart,
+      onBlockTap: _onBlockTap,
+    );
+  }
+
+  /// 中心表示モード（3×3）
   Widget _buildOverviewMode(state) {
     return Column(
       key: const ValueKey('overview'),
@@ -150,11 +240,25 @@ class _MandalaChartScreenState extends ConsumerState<MandalaChartScreen> {
     );
   }
 
-  /// 全体表示に戻る
+  /// 中心表示に戻る
   void _goBackToOverview() {
     setState(() {
       _displayMode = DisplayMode.overview;
       _selectedMiddlePosition = null;
+    });
+  }
+
+  /// 27×27ビューのブロックタップ処理
+  void _onBlockTap(int? middlePosition) {
+    setState(() {
+      if (middlePosition == null) {
+        // 中心ブロック（大目標）をタップした場合は中心表示へ
+        _displayMode = DisplayMode.overview;
+      } else {
+        // 中目標ブロックをタップした場合は詳細表示へ
+        _displayMode = DisplayMode.detail;
+        _selectedMiddlePosition = middlePosition;
+      }
     });
   }
 
@@ -182,9 +286,9 @@ class _MandalaChartScreenState extends ConsumerState<MandalaChartScreen> {
       return;
     }
     
-    // 中目標が空の場合：編集ダイアログを開く（タップで入力できるように）
+    // 中目標が空の場合：次の空いている位置に新規入力
     if (title.isEmpty) {
-      _onMiddleGoalLongPress(middlePosition);
+      _showAddMiddleGoalDialog();
       return;
     }
     
@@ -209,6 +313,13 @@ class _MandalaChartScreenState extends ConsumerState<MandalaChartScreen> {
       (g) => g.position == middlePosition,
     );
     
+    // 空のセルの場合は新規入力
+    if (middleGoal.title.isEmpty) {
+      _showAddMiddleGoalDialog();
+      return;
+    }
+    
+    // 既に入力されている場合は編集
     _showEditDialog(
       context,
       '中目標',
@@ -241,7 +352,13 @@ class _MandalaChartScreenState extends ConsumerState<MandalaChartScreen> {
       (g) => g.position == smallPosition,
     );
 
-    // 小目標が空でも入力済みでも、タップで編集ダイアログを開く
+    // 小目標が空の場合：次の空いている位置に新規入力
+    if (smallGoal.title.isEmpty) {
+      _showAddSmallGoalDialog();
+      return;
+    }
+
+    // 小目標が入力済みの場合：そのセルを編集
     _showEditDialog(
       context,
       '小目標',
@@ -408,6 +525,115 @@ class _MandalaChartScreenState extends ConsumerState<MandalaChartScreen> {
         ),
         duration: const Duration(seconds: 2),
       ),
+    );
+  }
+
+  /// 中目標の新規入力ダイアログを表示
+  Future<void> _showAddMiddleGoalDialog() async {
+    final chart = ref.read(mandalaChartProvider).chart;
+    final nextPosition = chart.getNextEmptyMiddlePosition();
+    
+    if (nextPosition == null) {
+      _showValidationMessage('中目標は全て入力済みです');
+      return;
+    }
+
+    final controller = TextEditingController();
+
+    return showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text(
+            '中目標',
+            style: TextStyle(
+              fontSize: DesignTokens.fontSizeH4,
+              fontWeight: DesignTokens.fontWeightSemibold,
+            ),
+          ),
+          content: TextField(
+            controller: controller,
+            decoration: const InputDecoration(
+              hintText: '目標を入力してください',
+            ),
+            maxLines: 3,
+            autofocus: true,
+            style: const TextStyle(
+              fontSize: DesignTokens.fontSizeBody,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('キャンセル'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                ref.read(mandalaChartProvider.notifier).addMiddleGoal(controller.text);
+                Navigator.of(dialogContext).pop();
+              },
+              child: const Text('保存'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// 小目標の新規入力ダイアログを表示
+  Future<void> _showAddSmallGoalDialog() async {
+    if (_selectedMiddlePosition == null) return;
+
+    final chart = ref.read(mandalaChartProvider).chart;
+    final nextPosition = chart.getNextEmptySmallPosition(_selectedMiddlePosition!);
+    
+    if (nextPosition == null) {
+      _showValidationMessage('小目標は全て入力済みです');
+      return;
+    }
+
+    final controller = TextEditingController();
+
+    return showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text(
+            '小目標',
+            style: TextStyle(
+              fontSize: DesignTokens.fontSizeH4,
+              fontWeight: DesignTokens.fontWeightSemibold,
+            ),
+          ),
+          content: TextField(
+            controller: controller,
+            decoration: const InputDecoration(
+              hintText: '目標を入力してください',
+            ),
+            maxLines: 3,
+            autofocus: true,
+            style: const TextStyle(
+              fontSize: DesignTokens.fontSizeBody,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('キャンセル'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                ref.read(mandalaChartProvider.notifier).addSmallGoal(
+                  _selectedMiddlePosition!,
+                  controller.text,
+                );
+                Navigator.of(dialogContext).pop();
+              },
+              child: const Text('保存'),
+            ),
+          ],
+        );
+      },
     );
   }
 }

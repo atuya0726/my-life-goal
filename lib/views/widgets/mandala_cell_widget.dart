@@ -12,6 +12,7 @@ class MandalaCellWidget extends StatelessWidget {
     this.onLongPress,
     this.status = GoalStatus.notStarted,
     this.isEnabled = true,
+    this.color,
   });
 
   final String title;
@@ -20,6 +21,7 @@ class MandalaCellWidget extends StatelessWidget {
   final VoidCallback? onLongPress;
   final GoalStatus status;
   final bool isEnabled;
+  final Color? color; // 中目標用の固有色
 
   @override
   Widget build(BuildContext context) {
@@ -52,12 +54,13 @@ class MandalaCellWidget extends StatelessWidget {
   /// セルの装飾を取得
   BoxDecoration _getDecoration(bool isEmpty) {
     if (isEmpty) {
-      // 未入力状態
+      // 未入力状態（点線でタップ可能であることを示す）
       return BoxDecoration(
         color: DesignTokens.emptyBackground,
         border: Border.all(
-          color: DesignTokens.emptyBorder,
-          width: DesignTokens.borderWidthThin,
+          color: DesignTokens.borderMedium,
+          width: DesignTokens.borderWidthMedium,
+          strokeAlign: BorderSide.strokeAlignInside,
         ),
         borderRadius: BorderRadius.circular(_getBorderRadius()),
       );
@@ -79,7 +82,7 @@ class MandalaCellWidget extends StatelessWidget {
         return BoxDecoration(
           color: DesignTokens.middleBackground,
           border: Border.all(
-            color: DesignTokens.middleBorder,
+            color: color ?? DesignTokens.middleBorder,
             width: DesignTokens.borderWidthMedium,
           ),
           borderRadius: BorderRadius.circular(_getBorderRadius()),
@@ -100,10 +103,10 @@ class MandalaCellWidget extends StatelessWidget {
   /// テキストスタイルを取得
   TextStyle _getTextStyle(bool isEmpty) {
     if (isEmpty) {
-      return const TextStyle(
-        fontSize: DesignTokens.fontSizeH3,
-        fontWeight: DesignTokens.fontWeightRegular,
-        color: DesignTokens.emptyText,
+      return TextStyle(
+        fontSize: _getEmptyIconSize(),
+        fontWeight: DesignTokens.fontWeightBold,
+        color: DesignTokens.borderDark,
       );
     }
 
@@ -153,6 +156,18 @@ class MandalaCellWidget extends StatelessWidget {
         return DesignTokens.radiusMd;
       case GoalType.small:
         return DesignTokens.radiusSm;
+    }
+  }
+
+  /// 空のセルのアイコンサイズを取得
+  double _getEmptyIconSize() {
+    switch (type) {
+      case GoalType.center:
+        return DesignTokens.fontSizeH1;
+      case GoalType.middle:
+        return DesignTokens.fontSizeH2;
+      case GoalType.small:
+        return DesignTokens.fontSizeH3;
     }
   }
 }

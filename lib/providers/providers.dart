@@ -32,7 +32,7 @@ final taskRepositoryProvider = Provider<TaskRepository>((ref) {
 /// タスクのStateNotifierProvider
 final taskProvider = StateNotifierProvider<TaskNotifier, TaskState>((ref) {
   final repository = ref.watch(taskRepositoryProvider);
-  return TaskNotifier(repository);
+  return TaskNotifier(repository, ref);
 });
 
 /// フォーカスタスクRepository Provider
@@ -44,7 +44,6 @@ final focusTaskRepositoryProvider = Provider<FocusTaskRepository>((ref) {
 final focusTaskProvider =
     StateNotifierProvider<FocusTaskNotifier, FocusTaskState>((ref) {
   final repository = ref.watch(focusTaskRepositoryProvider);
-  final taskRepository = ref.watch(taskRepositoryProvider);
-  return FocusTaskNotifier(repository, taskRepository);
+  return FocusTaskNotifier(repository);
 });
 

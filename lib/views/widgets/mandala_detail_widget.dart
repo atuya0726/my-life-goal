@@ -22,6 +22,9 @@ class MandalaDetailWidget extends StatelessWidget {
     final middleGoal = chart.middleGoals.firstWhere(
       (g) => g.position == middlePosition,
     );
+    
+    // 中目標の固有色を取得
+    final middleGoalColor = DesignTokens.middleGoalColors[middlePosition % DesignTokens.middleGoalColors.length];
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -35,8 +38,8 @@ class MandalaDetailWidget extends StatelessWidget {
             decoration: BoxDecoration(
               color: DesignTokens.backgroundSecondary,
               border: Border.all(
-                color: DesignTokens.borderLight,
-                width: DesignTokens.borderWidthThin,
+                color: middleGoalColor,
+                width: DesignTokens.borderWidthMedium,
               ),
               borderRadius: BorderRadius.circular(DesignTokens.radiusLg),
             ),
@@ -47,11 +50,15 @@ class MandalaDetailWidget extends StatelessWidget {
                   height: 48,
                   decoration: BoxDecoration(
                     color: DesignTokens.backgroundPrimary,
+                    border: Border.all(
+                      color: middleGoalColor,
+                      width: DesignTokens.borderWidthMedium,
+                    ),
                     borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.flag_outlined,
-                    color: DesignTokens.foregroundPrimary,
+                    color: middleGoalColor,
                     size: 24,
                   ),
                 ),
@@ -122,6 +129,9 @@ class MandalaDetailWidget extends StatelessWidget {
   Widget _buildCell(int index, MiddleGoal middleGoal) {
     final row = index ~/ 3;
     final col = index % 3;
+    
+    // 中目標の固有色を取得
+    final middleGoalColor = DesignTokens.middleGoalColors[middleGoal.position % DesignTokens.middleGoalColors.length];
 
     // 中心セル（中目標の再表示、読み取り専用）
     if (row == 1 && col == 1) {
@@ -129,7 +139,7 @@ class MandalaDetailWidget extends StatelessWidget {
         decoration: BoxDecoration(
           color: DesignTokens.backgroundPrimary,
           border: Border.all(
-            color: DesignTokens.borderMedium,
+            color: middleGoalColor,
             width: DesignTokens.borderWidthMedium,
           ),
           borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
@@ -173,15 +183,16 @@ class MandalaDetailWidget extends StatelessWidget {
   }
 
   /// 小目標の位置を取得（0-7）
+  /// 左上から時計回りに 0:左上, 1:上, 2:右上, 3:右, 4:右下, 5:下, 6:左下, 7:左
   int _getSmallPosition(int row, int col) {
-    if (row == 0 && col == 1) return 0; // 上
-    if (row == 0 && col == 2) return 1; // 右上
-    if (row == 1 && col == 2) return 2; // 右
-    if (row == 2 && col == 2) return 3; // 右下
-    if (row == 2 && col == 1) return 4; // 下
-    if (row == 2 && col == 0) return 5; // 左下
-    if (row == 1 && col == 0) return 6; // 左
-    if (row == 0 && col == 0) return 7; // 左上
+    if (row == 0 && col == 0) return 0; // 左上
+    if (row == 0 && col == 1) return 1; // 上
+    if (row == 0 && col == 2) return 2; // 右上
+    if (row == 1 && col == 2) return 3; // 右
+    if (row == 2 && col == 2) return 4; // 右下
+    if (row == 2 && col == 1) return 5; // 下
+    if (row == 2 && col == 0) return 6; // 左下
+    if (row == 1 && col == 0) return 7; // 左
     return 0;
   }
 }

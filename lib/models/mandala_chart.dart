@@ -82,15 +82,44 @@ class MandalaChart with _$MandalaChart {
     final index = updatedMiddleGoals.indexWhere((g) => g.position == position);
     
     if (index != -1) {
-      updatedMiddleGoals[index] = updatedMiddleGoals[index].copyWith(
-        title: newTitle,
-      );
+      // 空文字が設定された場合は詰める
+      if (newTitle.isEmpty) {
+        updatedMiddleGoals[index] = updatedMiddleGoals[index].copyWith(
+          title: newTitle,
+        );
+        _compactMiddleGoals(updatedMiddleGoals);
+      } else {
+        updatedMiddleGoals[index] = updatedMiddleGoals[index].copyWith(
+          title: newTitle,
+        );
+      }
     }
     
     return copyWith(
       middleGoals: updatedMiddleGoals,
       updatedAt: DateTime.now(),
     );
+  }
+
+  /// 次の空いている中目標のpositionを取得
+  int? getNextEmptyMiddlePosition() {
+    for (int i = 0; i < middleGoals.length; i++) {
+      final goal = middleGoals.firstWhere((g) => g.position == i);
+      if (goal.title.isEmpty) {
+        return i;
+      }
+    }
+    return null; // 全て埋まっている
+  }
+
+  /// 次の空いている中目標に入力
+  MandalaChart addMiddleGoal(String newTitle) {
+    if (newTitle.isEmpty) return this;
+    
+    final nextPosition = getNextEmptyMiddlePosition();
+    if (nextPosition == null) return this; // 全て埋まっている場合は何もしない
+    
+    return updateMiddleGoal(nextPosition, newTitle);
   }
 
   /// 小目標を更新
@@ -112,14 +141,117 @@ class MandalaChart with _$MandalaChart {
       );
       
       if (smallIndex != -1) {
-        updatedSmallGoals[smallIndex] = updatedSmallGoals[smallIndex].copyWith(
-          title: newTitle,
-        );
+        // 空文字が設定された場合は詰める
+        if (newTitle.isEmpty) {
+          updatedSmallGoals[smallIndex] = updatedSmallGoals[smallIndex].copyWith(
+            title: newTitle,
+          );
+          _compactSmallGoals(updatedSmallGoals);
+        } else {
+          updatedSmallGoals[smallIndex] = updatedSmallGoals[smallIndex].copyWith(
+            title: newTitle,
+          );
+        }
       }
       
       updatedMiddleGoals[middleIndex] = middle.copyWith(
         smallGoals: updatedSmallGoals,
       );
+    }
+    
+    return copyWith(
+      middleGoals: updatedMiddleGoals,
+      updatedAt: DateTime.now(),
+    );
+  }
+
+  /// 次の空いている小目標のpositionを取得
+  int? getNextEmptySmallPosition(int middlePosition) {
+    final middleIndex = middleGoals.indexWhere((g) => g.position == middlePosition);
+    if (middleIndex == -1) return null;
+    
+    final middle = middleGoals[middleIndex];
+    for (int i = 0; i < middle.smallGoals.length; i++) {
+      final goal = middle.smallGoals.firstWhere((g) => g.position == i);
+      if (goal.title.isEmpty) {
+        return i;
+      }
+    }
+    return null; // 全て埋まっている
+  }
+
+  /// 次の空いている小目標に入力
+  MandalaChart addSmallGoal(int middlePosition, String newTitle) {
+    if (newTitle.isEmpty) return this;
+    
+    final nextPosition = getNextEmptySmallPosition(middlePosition);
+    if (nextPosition == null) return this; // 全て埋まっている場合は何もしない
+    
+    return updateSmallGoal(middlePosition, nextPosition, newTitle);
+  }
+
+  /// 中目標を詰める（空の目標を後ろに移動）
+  void _compactMiddleGoals(List<MiddleGoal> goals) {
+    // タイトルが入力されている目標のみを抽出
+    final filledGoals = goals.where((g) => g.title.isNotEmpty).toList();
+    // 空の目標を抽出
+    final emptyGoals = goals.where((g) => g.title.isEmpty).toList();
+    
+    // positionを再割り当て（0から順番に）
+    for (int i = 0; i < filledGoals.length; i++) {
+      goals[i] = filledGoals[i].copyWith(position: i);
+    }
+    
+    // 空の目標を後ろに配置
+    for (int i = 0; i < emptyGoals.length; i++) {
+      goals[filledGoals.length + i] = emptyGoals[i].copyWith(
+        position: filledGoals.length + i,
+      );
+    }
+  }
+
+  /// 小目標を詰める（空の目標を後ろに移動）
+  void _compactSmallGoals(List<SmallGoal> goals) {
+    // タイトルが入力されている目標のみを抽出
+    final filledGoals = goals.where((g) => g.title.isNotEmpty).toList();
+    // 空の目標を抽出
+    final emptyGoals = goals.where((g) => g.title.isEmpty).toList();
+    
+    // positionを再割り当て（0から順番に）
+    for (int i = 0; i < filledGoals.length; i++) {
+      goals[i] = filledGoals[i].copyWith(position: i);
+    }
+    
+    // 空の目標を後ろに配置
+    for (int i = 0; i < emptyGoals.length; i++) {
+      goals[filledGoals.length + i] = emptyGoals[i].copyWith(
+        position: filledGoals.length + i,
+      );
+    }
+  }
+
+  /// 小目標をIDで削除（空文字に設定して詰める）
+  MandalaChart removeSmallGoalById(String smallGoalId) {
+    final updatedMiddleGoals = List<MiddleGoal>.from(middleGoals);
+    
+    // すべての中目標から該当する小目標を探す
+    for (int i = 0; i < updatedMiddleGoals.length; i++) {
+      final middle = updatedMiddleGoals[i];
+      final smallIndex = middle.smallGoals.indexWhere((g) => g.id == smallGoalId);
+      
+      if (smallIndex != -1) {
+        // 小目標を空文字に設定
+        final updatedSmallGoals = List<SmallGoal>.from(middle.smallGoals);
+        updatedSmallGoals[smallIndex] = updatedSmallGoals[smallIndex].copyWith(
+          title: '',
+        );
+        _compactSmallGoals(updatedSmallGoals);
+        
+        updatedMiddleGoals[i] = middle.copyWith(
+          smallGoals: updatedSmallGoals,
+        );
+        break; // 見つかったので終了
+      }
     }
     
     return copyWith(

@@ -62,6 +62,14 @@ class MandalaChartNotifier extends StateNotifier<MandalaChartState> {
     await save();
   }
 
+  /// 次の空いている中目標に追加
+  Future<void> addMiddleGoal(String newTitle) async {
+    state = state.copyWith(
+      chart: state.chart.addMiddleGoal(newTitle),
+    );
+    await save();
+  }
+
   /// 小目標を更新
   Future<void> updateSmallGoal(
     int middlePosition,
@@ -78,10 +86,26 @@ class MandalaChartNotifier extends StateNotifier<MandalaChartState> {
     await save();
   }
 
+  /// 次の空いている小目標に追加
+  Future<void> addSmallGoal(int middlePosition, String newTitle) async {
+    state = state.copyWith(
+      chart: state.chart.addSmallGoal(middlePosition, newTitle),
+    );
+    await save();
+  }
+
   /// チャートをリセット
   Future<void> reset() async {
     await _repository.delete();
     state = MandalaChartState.initial();
+  }
+
+  /// 小目標をIDで削除
+  Future<void> removeSmallGoalById(String smallGoalId) async {
+    state = state.copyWith(
+      chart: state.chart.removeSmallGoalById(smallGoalId),
+    );
+    await save();
   }
 }
 

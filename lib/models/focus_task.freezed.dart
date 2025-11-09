@@ -31,6 +31,8 @@ mixin _$FocusTaskList {
       throw _privateConstructorUsedError; // 今月のタスクID
   List<String> get yearlyTaskIds =>
       throw _privateConstructorUsedError; // 今年のタスクID
+  List<String> get awarenessTaskIds =>
+      throw _privateConstructorUsedError; // 意識することのID
   Map<String, String> get pendingOriginalPeriods =>
       throw _privateConstructorUsedError; // 保留タスクの元の期間（taskId -> period名）
   DateTime get updatedAt => throw _privateConstructorUsedError;
@@ -58,6 +60,7 @@ abstract class $FocusTaskListCopyWith<$Res> {
     List<String> weeklyTaskIds,
     List<String> monthlyTaskIds,
     List<String> yearlyTaskIds,
+    List<String> awarenessTaskIds,
     Map<String, String> pendingOriginalPeriods,
     DateTime updatedAt,
   });
@@ -83,6 +86,7 @@ class _$FocusTaskListCopyWithImpl<$Res, $Val extends FocusTaskList>
     Object? weeklyTaskIds = null,
     Object? monthlyTaskIds = null,
     Object? yearlyTaskIds = null,
+    Object? awarenessTaskIds = null,
     Object? pendingOriginalPeriods = null,
     Object? updatedAt = null,
   }) {
@@ -107,6 +111,10 @@ class _$FocusTaskListCopyWithImpl<$Res, $Val extends FocusTaskList>
             yearlyTaskIds: null == yearlyTaskIds
                 ? _value.yearlyTaskIds
                 : yearlyTaskIds // ignore: cast_nullable_to_non_nullable
+                      as List<String>,
+            awarenessTaskIds: null == awarenessTaskIds
+                ? _value.awarenessTaskIds
+                : awarenessTaskIds // ignore: cast_nullable_to_non_nullable
                       as List<String>,
             pendingOriginalPeriods: null == pendingOriginalPeriods
                 ? _value.pendingOriginalPeriods
@@ -137,6 +145,7 @@ abstract class _$$FocusTaskListImplCopyWith<$Res>
     List<String> weeklyTaskIds,
     List<String> monthlyTaskIds,
     List<String> yearlyTaskIds,
+    List<String> awarenessTaskIds,
     Map<String, String> pendingOriginalPeriods,
     DateTime updatedAt,
   });
@@ -161,6 +170,7 @@ class __$$FocusTaskListImplCopyWithImpl<$Res>
     Object? weeklyTaskIds = null,
     Object? monthlyTaskIds = null,
     Object? yearlyTaskIds = null,
+    Object? awarenessTaskIds = null,
     Object? pendingOriginalPeriods = null,
     Object? updatedAt = null,
   }) {
@@ -186,6 +196,10 @@ class __$$FocusTaskListImplCopyWithImpl<$Res>
             ? _value._yearlyTaskIds
             : yearlyTaskIds // ignore: cast_nullable_to_non_nullable
                   as List<String>,
+        awarenessTaskIds: null == awarenessTaskIds
+            ? _value._awarenessTaskIds
+            : awarenessTaskIds // ignore: cast_nullable_to_non_nullable
+                  as List<String>,
         pendingOriginalPeriods: null == pendingOriginalPeriods
             ? _value._pendingOriginalPeriods
             : pendingOriginalPeriods // ignore: cast_nullable_to_non_nullable
@@ -208,6 +222,7 @@ class _$FocusTaskListImpl implements _FocusTaskList {
     final List<String> weeklyTaskIds = const [],
     final List<String> monthlyTaskIds = const [],
     final List<String> yearlyTaskIds = const [],
+    final List<String> awarenessTaskIds = const [],
     final Map<String, String> pendingOriginalPeriods = const {},
     required this.updatedAt,
   }) : _pendingTaskIds = pendingTaskIds,
@@ -215,6 +230,7 @@ class _$FocusTaskListImpl implements _FocusTaskList {
        _weeklyTaskIds = weeklyTaskIds,
        _monthlyTaskIds = monthlyTaskIds,
        _yearlyTaskIds = yearlyTaskIds,
+       _awarenessTaskIds = awarenessTaskIds,
        _pendingOriginalPeriods = pendingOriginalPeriods;
 
   factory _$FocusTaskListImpl.fromJson(Map<String, dynamic> json) =>
@@ -274,8 +290,20 @@ class _$FocusTaskListImpl implements _FocusTaskList {
   }
 
   // 今年のタスクID
-  final Map<String, String> _pendingOriginalPeriods;
+  final List<String> _awarenessTaskIds;
   // 今年のタスクID
+  @override
+  @JsonKey()
+  List<String> get awarenessTaskIds {
+    if (_awarenessTaskIds is EqualUnmodifiableListView)
+      return _awarenessTaskIds;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_awarenessTaskIds);
+  }
+
+  // 意識することのID
+  final Map<String, String> _pendingOriginalPeriods;
+  // 意識することのID
   @override
   @JsonKey()
   Map<String, String> get pendingOriginalPeriods {
@@ -291,7 +319,7 @@ class _$FocusTaskListImpl implements _FocusTaskList {
 
   @override
   String toString() {
-    return 'FocusTaskList(pendingTaskIds: $pendingTaskIds, dailyTaskIds: $dailyTaskIds, weeklyTaskIds: $weeklyTaskIds, monthlyTaskIds: $monthlyTaskIds, yearlyTaskIds: $yearlyTaskIds, pendingOriginalPeriods: $pendingOriginalPeriods, updatedAt: $updatedAt)';
+    return 'FocusTaskList(pendingTaskIds: $pendingTaskIds, dailyTaskIds: $dailyTaskIds, weeklyTaskIds: $weeklyTaskIds, monthlyTaskIds: $monthlyTaskIds, yearlyTaskIds: $yearlyTaskIds, awarenessTaskIds: $awarenessTaskIds, pendingOriginalPeriods: $pendingOriginalPeriods, updatedAt: $updatedAt)';
   }
 
   @override
@@ -320,6 +348,10 @@ class _$FocusTaskListImpl implements _FocusTaskList {
               _yearlyTaskIds,
             ) &&
             const DeepCollectionEquality().equals(
+              other._awarenessTaskIds,
+              _awarenessTaskIds,
+            ) &&
+            const DeepCollectionEquality().equals(
               other._pendingOriginalPeriods,
               _pendingOriginalPeriods,
             ) &&
@@ -336,6 +368,7 @@ class _$FocusTaskListImpl implements _FocusTaskList {
     const DeepCollectionEquality().hash(_weeklyTaskIds),
     const DeepCollectionEquality().hash(_monthlyTaskIds),
     const DeepCollectionEquality().hash(_yearlyTaskIds),
+    const DeepCollectionEquality().hash(_awarenessTaskIds),
     const DeepCollectionEquality().hash(_pendingOriginalPeriods),
     updatedAt,
   );
@@ -361,6 +394,7 @@ abstract class _FocusTaskList implements FocusTaskList {
     final List<String> weeklyTaskIds,
     final List<String> monthlyTaskIds,
     final List<String> yearlyTaskIds,
+    final List<String> awarenessTaskIds,
     final Map<String, String> pendingOriginalPeriods,
     required final DateTime updatedAt,
   }) = _$FocusTaskListImpl;
@@ -378,6 +412,8 @@ abstract class _FocusTaskList implements FocusTaskList {
   List<String> get monthlyTaskIds; // 今月のタスクID
   @override
   List<String> get yearlyTaskIds; // 今年のタスクID
+  @override
+  List<String> get awarenessTaskIds; // 意識することのID
   @override
   Map<String, String> get pendingOriginalPeriods; // 保留タスクの元の期間（taskId -> period名）
   @override

@@ -43,13 +43,37 @@ class DesignTokens {
   static const middleBorder = Color(0xFF6B7280);
   static const middleText = Color(0xFF374151);
   
-  static const smallBackground = Color(0xFFFAFAFA);
-  static const smallBorder = Color(0xFFD1D5DB);
-  static const smallText = Color(0xFF6B7280);
+  static const smallBackground = Color(0xFFFFFFFF);
+  static const smallBorder = Color(0xFF9CA3AF);
+  static const smallText = Color(0xFF374151);
   
   static const emptyBackground = Color(0xFFF9FAFB);
   static const emptyBorder = Color(0xFFE5E7EB);
   static const emptyText = Color(0xFF9CA3AF);
+  
+  // 中目標の固有色（position 0-7に対応）
+  static const List<Color> middleGoalColors = [
+    Color(0xFFEF4444), // 0: 左上 - 赤
+    Color(0xFFF59E0B), // 1: 上 - オレンジ
+    Color(0xFFFBBF24), // 2: 右上 - 黄色
+    Color(0xFF10B981), // 3: 右 - 緑
+    Color(0xFF3B82F6), // 4: 右下 - 青
+    Color(0xFF8B5CF6), // 5: 下 - 紫
+    Color(0xFFEC4899), // 6: 左下 - ピンク
+    Color(0xFF6366F1), // 7: 左 - インディゴ
+  ];
+  
+  // 中目標の固有色（薄い背景用）
+  static const List<Color> middleGoalColorsLight = [
+    Color(0xFFFEE2E2), // 0: 左上 - 薄い赤
+    Color(0xFFFEF3C7), // 1: 上 - 薄いオレンジ
+    Color(0xFFFEF3C7), // 2: 右上 - 薄い黄色
+    Color(0xFFD1FAE5), // 3: 右 - 薄い緑
+    Color(0xFFDBEAFE), // 4: 右下 - 薄い青
+    Color(0xFFEDE9FE), // 5: 下 - 薄い紫
+    Color(0xFFFCE7F3), // 6: 左下 - 薄いピンク
+    Color(0xFFE0E7FF), // 7: 左 - 薄いインディゴ
+  ];
   
   // ========== Spacing ==========
   

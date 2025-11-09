@@ -1,9 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'utils/design_tokens.dart';
 import 'views/screens/main_screen.dart';
+import 'services/notification_service.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // 通知サービスを初期化
+  final notificationService = NotificationService();
+  await notificationService.initialize();
+  await notificationService.rescheduleNotifications();
+  
   runApp(
     // Riverpodを使用するためProviderScopeでラップ
     const ProviderScope(
@@ -28,6 +37,9 @@ class MyApp extends StatelessWidget {
   ThemeData _buildTheme() {
     return ThemeData(
       useMaterial3: true,
+      
+      // フォントファミリー（日本語対応）
+      fontFamily: GoogleFonts.notoSansJp().fontFamily,
       
       // カラースキーム
       colorScheme: const ColorScheme(

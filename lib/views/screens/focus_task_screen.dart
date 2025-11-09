@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import '../../models/task.dart';
 import '../../models/focus_task.dart';
+import '../../models/mandala_chart.dart';
 import '../../providers/providers.dart';
 import '../../utils/design_tokens.dart';
 import '../widgets/task_card_widget.dart';
@@ -15,6 +17,15 @@ class FocusTaskScreen extends ConsumerStatefulWidget {
 }
 
 class _FocusTaskScreenState extends ConsumerState<FocusTaskScreen> {
+  // 保留セクションの展開/折りたたみ状態
+  final Map<TaskPeriod, bool> _pendingExpanded = {
+    TaskPeriod.awareness: true,
+    TaskPeriod.daily: true,
+    TaskPeriod.weekly: true,
+    TaskPeriod.monthly: true,
+    TaskPeriod.yearly: true,
+  };
+
   @override
   void initState() {
     super.initState();
@@ -30,8 +41,9 @@ class _FocusTaskScreenState extends ConsumerState<FocusTaskScreen> {
   Widget build(BuildContext context) {
     final focusTaskState = ref.watch(focusTaskProvider);
     final taskState = ref.watch(taskProvider);
+    final mandalaChartState = ref.watch(mandalaChartProvider);
 
-    if (focusTaskState.isLoading || taskState.isLoading) {
+    if (focusTaskState.isLoading || taskState.isLoading || mandalaChartState.isLoading) {
       return const Scaffold(
         body: Center(
           child: CircularProgressIndicator(strokeWidth: 2),
@@ -48,6 +60,7 @@ class _FocusTaskScreenState extends ConsumerState<FocusTaskScreen> {
         ...focusTasks.weeklyTaskIds,
         ...focusTasks.monthlyTaskIds,
         ...focusTasks.yearlyTaskIds,
+        ...focusTasks.awarenessTaskIds,
       ]
     };
 
@@ -92,16 +105,43 @@ class _FocusTaskScreenState extends ConsumerState<FocusTaskScreen> {
             .cast<Task>()
             .toList() ??
         [];
+    final awarenessTasks = focusTasks?.awarenessTaskIds
+            .map((id) => taskMap[id])
+            .where((t) => t != null)
+            .cast<Task>()
+            .toList() ??
+        [];
 
     final totalTasks = pendingTasks.length +
         dailyTasks.length +
         weeklyTasks.length +
         monthlyTasks.length +
-        yearlyTasks.length;
+        yearlyTasks.length +
+        awarenessTasks.length;
 
     return Scaffold(
       body: Column(
         children: [
+          // JUST DO IT!
+          Padding(
+            padding: const EdgeInsets.only(
+              top: DesignTokens.spaceSm,
+              right: DesignTokens.spaceMd,
+            ),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                'JUST DO IT!',
+                style: TextStyle(
+                  fontSize: DesignTokens.fontSizeBodySmall,
+                  fontWeight: DesignTokens.fontWeightBold,
+                  color: DesignTokens.foregroundSecondary.withOpacity(0.5),
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+          ),
+          
           // エラーメッセージ
           if (focusTaskState.errorMessage != null)
             _buildErrorBanner(focusTaskState.errorMessage!),
@@ -116,9 +156,9 @@ class _FocusTaskScreenState extends ConsumerState<FocusTaskScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _buildPeriodSection(
-                          '保留',
-                          FocusPeriod.pending,
-                          pendingTasks,
+                          '意識',
+                          FocusPeriod.awareness,
+                          awarenessTasks,
                         ),
                         const SizedBox(height: DesignTokens.spaceLg),
                         _buildPeriodSection(
@@ -144,18 +184,16 @@ class _FocusTaskScreenState extends ConsumerState<FocusTaskScreen> {
                           FocusPeriod.yearly,
                           yearlyTasks,
                         ),
+                        const SizedBox(height: DesignTokens.spaceLg),
+                        _buildPendingSection(
+                          pendingTasks,
+                          mandalaChartState.chart,
+                        ),
                       ],
                     ),
                   ),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showSmallGoalSelectionDialog(context),
-        icon: const Icon(Icons.add),
-        label: const Text('小目標から追加'),
-        backgroundColor: DesignTokens.infoPrimary,
-        foregroundColor: DesignTokens.backgroundSecondary,
       ),
     );
   }
@@ -221,11 +259,44 @@ class _FocusTaskScreenState extends ConsumerState<FocusTaskScreen> {
     );
   }
 
+  // 期間の範囲を取得
+  String _getPeriodRange(FocusPeriod period) {
+    final now = DateTime.now();
+    final dateFormat = DateFormat('yyyy/M/d');
+    
+    switch (period) {
+      case FocusPeriod.yearly:
+        final yearStart = DateTime(now.year, 1, 1);
+        final yearEnd = DateTime(now.year, 12, 31);
+        return '${dateFormat.format(yearStart)}〜${dateFormat.format(yearEnd)}';
+      
+      case FocusPeriod.monthly:
+        final monthStart = DateTime(now.year, now.month, 1);
+        final monthEnd = DateTime(now.year, now.month + 1, 0);
+        return '${dateFormat.format(monthStart)}〜${dateFormat.format(monthEnd)}';
+      
+      case FocusPeriod.weekly:
+        final weekday = now.weekday;
+        final weekStart = now.subtract(Duration(days: weekday - 1)); // 月曜日
+        final weekEnd = weekStart.add(const Duration(days: 6)); // 日曜日
+        return '${dateFormat.format(weekStart)}〜${dateFormat.format(weekEnd)}';
+      
+      case FocusPeriod.daily:
+        return dateFormat.format(now);
+      
+      case FocusPeriod.pending:
+      case FocusPeriod.awareness:
+        return '';
+    }
+  }
+
   Widget _buildPeriodSection(
     String label,
     FocusPeriod period,
     List<Task> tasks,
   ) {
+    final periodRange = _getPeriodRange(period);
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -249,6 +320,16 @@ class _FocusTaskScreenState extends ConsumerState<FocusTaskScreen> {
                   color: DesignTokens.foregroundSecondary.withValues(alpha: 0.6),
                 ),
               ),
+            if (periodRange.isNotEmpty) ...[
+              const SizedBox(width: DesignTokens.spaceXs),
+              Text(
+                '($periodRange)',
+                style: TextStyle(
+                  fontSize: DesignTokens.fontSizeBodySmall,
+                  color: DesignTokens.foregroundSecondary.withValues(alpha: 0.5),
+                ),
+              ),
+            ],
           ],
         ),
         const SizedBox(height: DesignTokens.spaceSm),
@@ -271,21 +352,10 @@ class _FocusTaskScreenState extends ConsumerState<FocusTaskScreen> {
             itemCount: tasks.length,
             itemBuilder: (context, index) {
               final task = tasks[index];
+              final smallGoalInfo = _getSmallGoalInfo(task);
               return Padding(
-                padding:
-                    const EdgeInsets.only(bottom: DesignTokens.spaceSm),
-                child: TaskCardWidget(
-                  task: task,
-                  onTap: () {}, // タップ無効化
-                  onStatusChanged: (status) {
-                    ref
-                        .read(taskProvider.notifier)
-                        .updateTaskStatus(task.id, status);
-                  },
-                  onLongPress: () =>
-                      _showRemoveTaskDialog(context, task),
-                  actionButton: _buildPeriodActionButton(task, period),
-                ),
+                padding: const EdgeInsets.only(bottom: DesignTokens.spaceSm),
+                child: _buildDismissibleTaskCard(task, period, smallGoalInfo),
               );
             },
           ),
@@ -293,15 +363,519 @@ class _FocusTaskScreenState extends ConsumerState<FocusTaskScreen> {
     );
   }
 
+
+  Widget _buildPendingSection(List<Task> pendingTasks, MandalaChart mandalaChart) {
+    if (pendingTasks.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    // タスクを期間別にグループ化
+    final Map<TaskPeriod, List<Task>> tasksByPeriod = {
+      TaskPeriod.awareness: [],
+      TaskPeriod.daily: [],
+      TaskPeriod.weekly: [],
+      TaskPeriod.monthly: [],
+      TaskPeriod.yearly: [],
+    };
+    
+    for (final task in pendingTasks) {
+      tasksByPeriod[task.period]?.add(task);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ヘッダー
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(DesignTokens.spaceXs),
+                  decoration: BoxDecoration(
+                    color: DesignTokens.foregroundSecondary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(DesignTokens.radiusSm),
+                  ),
+                  child: const Icon(
+                    Icons.inbox,
+                    size: 20,
+                    color: DesignTokens.foregroundSecondary,
+                  ),
+                ),
+                const SizedBox(width: DesignTokens.spaceSm),
+                const Text(
+                  '保留',
+                  style: TextStyle(
+                    fontSize: DesignTokens.fontSizeH3,
+                    fontWeight: DesignTokens.fontWeightBold,
+                    color: DesignTokens.foregroundPrimary,
+                  ),
+                ),
+                const SizedBox(width: DesignTokens.spaceXs),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: DesignTokens.spaceXs + 2,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: DesignTokens.foregroundSecondary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(DesignTokens.radiusSm),
+                  ),
+                  child: Text(
+                    '${pendingTasks.length}',
+                    style: const TextStyle(
+                      fontSize: DesignTokens.fontSizeBodySmall,
+                      fontWeight: DesignTokens.fontWeightSemibold,
+                      color: DesignTokens.foregroundSecondary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: DesignTokens.spaceMd),
+        
+        // 期間別のタスクリスト
+        _buildPendingPeriodSection('意識', TaskPeriod.awareness, tasksByPeriod[TaskPeriod.awareness]!, mandalaChart),
+        _buildPendingPeriodSection('今日', TaskPeriod.daily, tasksByPeriod[TaskPeriod.daily]!, mandalaChart),
+        _buildPendingPeriodSection('今週', TaskPeriod.weekly, tasksByPeriod[TaskPeriod.weekly]!, mandalaChart),
+        _buildPendingPeriodSection('今月', TaskPeriod.monthly, tasksByPeriod[TaskPeriod.monthly]!, mandalaChart),
+        _buildPendingPeriodSection('今年', TaskPeriod.yearly, tasksByPeriod[TaskPeriod.yearly]!, mandalaChart),
+      ],
+    );
+  }
+
+  // TaskPeriodから期間範囲を取得
+  String _getTaskPeriodRange(TaskPeriod period) {
+    final now = DateTime.now();
+    final dateFormat = DateFormat('yyyy/M/d');
+    
+    switch (period) {
+      case TaskPeriod.yearly:
+        final yearStart = DateTime(now.year, 1, 1);
+        final yearEnd = DateTime(now.year, 12, 31);
+        return '${dateFormat.format(yearStart)}〜${dateFormat.format(yearEnd)}';
+      
+      case TaskPeriod.monthly:
+        final monthStart = DateTime(now.year, now.month, 1);
+        final monthEnd = DateTime(now.year, now.month + 1, 0);
+        return '${dateFormat.format(monthStart)}〜${dateFormat.format(monthEnd)}';
+      
+      case TaskPeriod.weekly:
+        final weekday = now.weekday;
+        final weekStart = now.subtract(Duration(days: weekday - 1)); // 月曜日
+        final weekEnd = weekStart.add(const Duration(days: 6)); // 日曜日
+        return '${dateFormat.format(weekStart)}〜${dateFormat.format(weekEnd)}';
+      
+      case TaskPeriod.daily:
+        return dateFormat.format(now);
+      
+      case TaskPeriod.awareness:
+        return '';
+    }
+  }
+
+  Widget _buildPendingPeriodSection(
+    String label,
+    TaskPeriod period,
+    List<Task> tasks,
+    MandalaChart mandalaChart,
+  ) {
+    if (tasks.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final isExpanded = _pendingExpanded[period] ?? false;
+    final periodRange = _getTaskPeriodRange(period);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // トグル可能なヘッダー
+        InkWell(
+          onTap: () {
+            setState(() {
+              _pendingExpanded[period] = !isExpanded;
+            });
+          },
+          borderRadius: BorderRadius.circular(DesignTokens.radiusSm),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              vertical: DesignTokens.spaceXs,
+              horizontal: DesignTokens.spaceXs,
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  isExpanded ? Icons.expand_more : Icons.chevron_right,
+                  size: 20,
+                  color: DesignTokens.foregroundSecondary,
+                ),
+                const SizedBox(width: DesignTokens.spaceXs),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: DesignTokens.fontSizeBody,
+                    fontWeight: DesignTokens.fontWeightSemibold,
+                    color: DesignTokens.foregroundPrimary,
+                  ),
+                ),
+                const SizedBox(width: DesignTokens.spaceXs),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: DesignTokens.spaceXs,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: DesignTokens.foregroundSecondary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(DesignTokens.radiusSm),
+                  ),
+                  child: Text(
+                    '${tasks.length}',
+                    style: const TextStyle(
+                      fontSize: DesignTokens.fontSizeBodySmall,
+                      fontWeight: DesignTokens.fontWeightMedium,
+                      color: DesignTokens.foregroundSecondary,
+                    ),
+                  ),
+                ),
+                if (periodRange.isNotEmpty) ...[
+                  const SizedBox(width: DesignTokens.spaceXs),
+                  Text(
+                    '($periodRange)',
+                    style: TextStyle(
+                      fontSize: DesignTokens.fontSizeBodySmall,
+                      color: DesignTokens.foregroundSecondary.withValues(alpha: 0.5),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        
+        // タスクリスト（展開時のみ表示）
+        if (isExpanded) ...[
+          const SizedBox(height: DesignTokens.spaceXs),
+          Padding(
+            padding: const EdgeInsets.only(left: DesignTokens.spaceMd),
+            child: Column(
+              children: tasks.map((task) {
+                final smallGoalInfo = _getSmallGoalInfo(task);
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: DesignTokens.spaceSm),
+                  child: _buildDismissibleTaskCard(task, FocusPeriod.pending, smallGoalInfo),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+        
+        const SizedBox(height: DesignTokens.spaceSm),
+      ],
+    );
+  }
+
+  // タスクの小目標情報を取得
+  Map<String, dynamic> _getSmallGoalInfo(Task task) {
+    final mandalaChartState = ref.read(mandalaChartProvider);
+    final mandalaChart = mandalaChartState.chart;
+    
+    String? smallGoalTitle;
+    Color? middleGoalColor;
+    
+    for (final middleGoal in mandalaChart.middleGoals) {
+      for (final smallGoal in middleGoal.smallGoals) {
+        if (smallGoal.id == task.smallGoalId) {
+          smallGoalTitle = smallGoal.title;
+          middleGoalColor = DesignTokens.middleGoalColors[middleGoal.position % DesignTokens.middleGoalColors.length];
+          break;
+        }
+      }
+      if (smallGoalTitle != null) break;
+    }
+    
+    return {
+      'smallGoalTitle': smallGoalTitle,
+      'middleGoalColor': middleGoalColor,
+    };
+  }
+
+  /// スワイプ可能なタスクカードを構築
+  Widget _buildDismissibleTaskCard(
+    Task task,
+    FocusPeriod period,
+    Map<String, dynamic> smallGoalInfo,
+  ) {
+    return Dismissible(
+      key: Key('task_${task.id}_${period.name}'),
+      background: Container(
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.only(left: DesignTokens.spaceMd),
+        decoration: BoxDecoration(
+          color: DesignTokens.successPrimary,
+          borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.white, size: 28),
+            SizedBox(width: DesignTokens.spaceXs),
+            Text(
+              '完了',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: DesignTokens.fontSizeBody,
+                fontWeight: DesignTokens.fontWeightBold,
+              ),
+            ),
+          ],
+        ),
+      ),
+      secondaryBackground: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: DesignTokens.spaceMd),
+        decoration: BoxDecoration(
+          color: DesignTokens.errorPrimary,
+          borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
+        ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            Text(
+              '削除',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: DesignTokens.fontSizeBody,
+                fontWeight: DesignTokens.fontWeightBold,
+              ),
+            ),
+            SizedBox(width: DesignTokens.spaceXs),
+            Icon(Icons.delete, color: Colors.white, size: 28),
+          ],
+        ),
+      ),
+      confirmDismiss: (direction) async {
+        if (direction == DismissDirection.startToEnd) {
+          // 右スワイプ: 完了
+          return true;
+        } else if (direction == DismissDirection.endToStart) {
+          // 左スワイプ: 削除確認
+          return await _showDeleteConfirmDialog(context, task);
+        }
+        return false;
+      },
+      onDismissed: (direction) async {
+        if (direction == DismissDirection.startToEnd) {
+          // 右スワイプ: 完了処理
+          await _handleTaskCompletion(task, period);
+        } else if (direction == DismissDirection.endToStart) {
+          // 左スワイプ: 削除処理
+          await _handleTaskDeletion(task);
+        }
+      },
+      child: TaskCardWidget(
+        task: task,
+        onTap: () {},
+        onStatusChanged: (status) {
+          ref.read(taskProvider.notifier).updateTaskStatus(task.id, status);
+        },
+        onLongPress: () => _showRemoveTaskDialog(context, task),
+        actionButton: _buildPeriodActionButton(task, period),
+        smallGoalTitle: smallGoalInfo['smallGoalTitle'],
+        middleGoalColor: smallGoalInfo['middleGoalColor'],
+      ),
+    );
+  }
+
+  /// タスク完了処理
+  Future<void> _handleTaskCompletion(Task task, FocusPeriod originalPeriod) async {
+    // 完了前の状態を保存
+    final previousStatus = task.status;
+    
+    // タスクを完了状態に更新
+    await ref.read(taskProvider.notifier).updateTaskStatus(
+      task.id,
+      TaskStatus.completed,
+    );
+    
+    // フォーカスタスクから削除
+    await ref.read(focusTaskProvider.notifier).removeTask(task.id);
+    
+    // 1日タスクの場合は複製して保留に追加
+    Task? duplicatedTask;
+    if (originalPeriod == FocusPeriod.daily) {
+      final now = DateTime.now();
+      duplicatedTask = task.copyWith(
+        id: '${now.millisecondsSinceEpoch}_task',
+        status: TaskStatus.notStarted,
+        createdAt: now,
+        updatedAt: now,
+      );
+      await ref.read(taskProvider.notifier).addTask(duplicatedTask);
+    }
+    
+    // アンドゥ可能なスナックバー表示
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(
+                Icons.check_circle,
+                color: Colors.white,
+                size: 20,
+              ),
+              const SizedBox(width: DesignTokens.spaceSm),
+              Expanded(
+                child: Text(
+                  originalPeriod == FocusPeriod.daily
+                      ? '「${task.title}」を完了しました\n（保留に複製されました）'
+                      : '「${task.title}」を完了しました',
+                  style: const TextStyle(
+                    fontSize: DesignTokens.fontSizeBody,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: DesignTokens.successPrimary,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
+          ),
+          duration: const Duration(seconds: 3),
+          action: SnackBarAction(
+            label: '元に戻す',
+            textColor: Colors.white,
+            onPressed: () async {
+              // タスクの状態を元に戻す
+              await ref.read(taskProvider.notifier).updateTaskStatus(
+                task.id,
+                previousStatus,
+              );
+              // フォーカスタスクに再追加（元の期間に）
+              await ref.read(focusTaskProvider.notifier).addTask(
+                task.id,
+                originalPeriod,
+              );
+              // 1日タスクの複製を削除
+              if (duplicatedTask != null) {
+                await ref.read(taskProvider.notifier).deleteTask(duplicatedTask.id);
+              }
+            },
+          ),
+        ),
+      );
+    }
+  }
+
+  /// タスク削除処理
+  Future<void> _handleTaskDeletion(Task task) async {
+    // タスク自体を削除（フォーカスからも削除される）
+    await ref.read(taskProvider.notifier).deleteTask(task.id);
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(
+                Icons.delete,
+                color: Colors.white,
+                size: 20,
+              ),
+              const SizedBox(width: DesignTokens.spaceSm),
+              Expanded(
+                child: Text(
+                  '「${task.title}」を削除しました',
+                  style: const TextStyle(
+                    fontSize: DesignTokens.fontSizeBody,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: DesignTokens.errorPrimary,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  /// 削除確認ダイアログ
+  Future<bool> _showDeleteConfirmDialog(BuildContext context, Task task) async {
+    return await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text(
+            'タスクを削除',
+            style: TextStyle(
+              fontSize: DesignTokens.fontSizeH4,
+              fontWeight: DesignTokens.fontWeightSemibold,
+            ),
+          ),
+          content: Text(
+            '「${task.title}」を削除しますか？\n（タスク自体も削除されます）',
+            style: const TextStyle(
+              fontSize: DesignTokens.fontSizeBody,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('キャンセル'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: DesignTokens.errorPrimary,
+                foregroundColor: DesignTokens.backgroundSecondary,
+              ),
+              child: const Text('削除'),
+            ),
+          ],
+        );
+      },
+    ) ?? false;
+  }
+
   Widget _buildPeriodActionButton(Task task, FocusPeriod period) {
     if (period == FocusPeriod.pending) {
-      // 保留から元の期間に戻すボタン
+      // 保留からタスクの期間に自動振り分け
       return IconButton(
-        icon: const Icon(Icons.restore, size: 20),
-        tooltip: '元の期間に戻す',
+        icon: const Icon(Icons.arrow_forward, size: 20),
+        tooltip: 'タスク期間に振り分ける',
         color: DesignTokens.infoPrimary,
         onPressed: () {
-          ref.read(focusTaskProvider.notifier).moveTaskFromPending(task.id);
+          // タスクの期間に基づいてFocusPeriodを決定
+          FocusPeriod targetPeriod;
+          switch (task.period) {
+            case TaskPeriod.daily:
+              targetPeriod = FocusPeriod.daily;
+              break;
+            case TaskPeriod.weekly:
+              targetPeriod = FocusPeriod.weekly;
+              break;
+            case TaskPeriod.monthly:
+              targetPeriod = FocusPeriod.monthly;
+              break;
+            case TaskPeriod.yearly:
+              targetPeriod = FocusPeriod.yearly;
+              break;
+            case TaskPeriod.awareness:
+              targetPeriod = FocusPeriod.awareness;
+              break;
+          }
+          
+          // 振り分け実行
+          ref.read(focusTaskProvider.notifier).addTask(task.id, targetPeriod);
         },
       );
     } else {
@@ -323,14 +897,14 @@ class _FocusTaskScreenState extends ConsumerState<FocusTaskScreen> {
       builder: (dialogContext) {
         return AlertDialog(
           title: const Text(
-            'フォーカスから削除',
+            'タスクを削除',
             style: TextStyle(
               fontSize: DesignTokens.fontSizeH4,
               fontWeight: DesignTokens.fontWeightSemibold,
             ),
           ),
           content: Text(
-            '「${task.title}」をフォーカスから削除しますか？\n（タスク自体は削除されません）',
+            '「${task.title}」を削除しますか？\n（タスク自体も削除されます）',
             style: const TextStyle(
               fontSize: DesignTokens.fontSizeBody,
             ),
@@ -341,137 +915,18 @@ class _FocusTaskScreenState extends ConsumerState<FocusTaskScreen> {
               child: const Text('キャンセル'),
             ),
             ElevatedButton(
-              onPressed: () {
-                ref.read(focusTaskProvider.notifier).removeTask(task.id);
-                Navigator.of(dialogContext).pop();
+              onPressed: () async {
+                // タスク自体を削除（フォーカスからも削除される）
+                await ref.read(taskProvider.notifier).deleteTask(task.id);
+                if (dialogContext.mounted) {
+                  Navigator.of(dialogContext).pop();
+                }
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: DesignTokens.errorPrimary,
                 foregroundColor: DesignTokens.backgroundSecondary,
               ),
               child: const Text('削除'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<void> _showSmallGoalSelectionDialog(BuildContext context) async {
-    final mandalaChartState = ref.read(mandalaChartProvider);
-    final mandalaChart = mandalaChartState.chart;
-
-    // 全ての小目標を収集（タイトルが空でないもの）
-    final smallGoals = <Map<String, String>>[];
-    for (final middleGoal in mandalaChart.middleGoals) {
-      if (middleGoal.title.isEmpty) continue;
-      for (final smallGoal in middleGoal.smallGoals) {
-        if (smallGoal.title.isEmpty) continue;
-        smallGoals.add({
-          'id': smallGoal.id,
-          'title': smallGoal.title,
-          'middleGoalTitle': middleGoal.title,
-        });
-      }
-    }
-
-    if (smallGoals.isEmpty) {
-      // 小目標が存在しない場合
-      return showDialog(
-        context: context,
-        builder: (dialogContext) {
-          return AlertDialog(
-            title: const Text(
-              '小目標がありません',
-              style: TextStyle(
-                fontSize: DesignTokens.fontSizeH4,
-                fontWeight: DesignTokens.fontWeightSemibold,
-              ),
-            ),
-            content: const Text(
-              '先にマンダラチャートで小目標を設定してください。',
-              style: TextStyle(
-                fontSize: DesignTokens.fontSizeBody,
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('閉じる'),
-              ),
-            ],
-          );
-        },
-      );
-    }
-
-    return showDialog(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text(
-            '小目標を選択',
-            style: TextStyle(
-              fontSize: DesignTokens.fontSizeH4,
-              fontWeight: DesignTokens.fontWeightSemibold,
-            ),
-          ),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: smallGoals.length,
-              itemBuilder: (context, index) {
-                final smallGoal = smallGoals[index];
-                return ListTile(
-                  leading: Icon(
-                    Icons.filter_none,
-                    color: DesignTokens.infoPrimary,
-                  ),
-                  title: Text(
-                    smallGoal['title']!,
-                    style: const TextStyle(
-                      fontSize: DesignTokens.fontSizeBody,
-                      fontWeight: DesignTokens.fontWeightMedium,
-                    ),
-                  ),
-                  subtitle: Text(
-                    '中目標: ${smallGoal['middleGoalTitle']}',
-                    style: TextStyle(
-                      fontSize: DesignTokens.fontSizeBodySmall,
-                      color: DesignTokens.foregroundSecondary
-                          .withValues(alpha: 0.7),
-                    ),
-                  ),
-                  onTap: () async {
-                    Navigator.of(dialogContext).pop();
-                    
-                    // タスクを追加
-                    await ref
-                        .read(focusTaskProvider.notifier)
-                        .addTasksFromSmallGoal(smallGoal['id']!);
-                    
-                    // 完了メッセージを表示
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            '「${smallGoal['title']}」の関連タスクを追加しました',
-                          ),
-                          duration: const Duration(seconds: 2),
-                          backgroundColor: DesignTokens.successPrimary,
-                        ),
-                      );
-                    }
-                  },
-                );
-              },
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('キャンセル'),
             ),
           ],
         );

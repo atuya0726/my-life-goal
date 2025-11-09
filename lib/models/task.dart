@@ -5,10 +5,11 @@ part 'task.g.dart';
 
 /// タスクの期間タイプ
 enum TaskPeriod {
-  daily,   // 1日
-  weekly,  // 1週間
-  monthly, // 1月
-  yearly,  // 1年
+  daily,      // 1日
+  weekly,     // 1週間
+  monthly,    // 1月
+  yearly,     // 1年
+  awareness,  // 意識すること
 }
 
 /// タスクのステータス
@@ -71,6 +72,8 @@ extension TaskPeriodExtension on TaskPeriod {
         return '1月';
       case TaskPeriod.yearly:
         return '1年';
+      case TaskPeriod.awareness:
+        return '意識';
     }
   }
 
@@ -85,6 +88,8 @@ extension TaskPeriodExtension on TaskPeriod {
         return 'calendar_month';
       case TaskPeriod.yearly:
         return 'calendar_today';
+      case TaskPeriod.awareness:
+        return 'lightbulb';
     }
   }
 }

@@ -38,6 +38,7 @@ const _$TaskPeriodEnumMap = {
   TaskPeriod.weekly: 'weekly',
   TaskPeriod.monthly: 'monthly',
   TaskPeriod.yearly: 'yearly',
+  TaskPeriod.awareness: 'awareness',
 };
 
 const _$TaskStatusEnumMap = {

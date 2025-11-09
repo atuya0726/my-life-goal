@@ -33,6 +33,11 @@ _$FocusTaskListImpl _$$FocusTaskListImplFromJson(Map<String, dynamic> json) =>
               ?.map((e) => e as String)
               .toList() ??
           const [],
+      awarenessTaskIds:
+          (json['awarenessTaskIds'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          const [],
       pendingOriginalPeriods:
           (json['pendingOriginalPeriods'] as Map<String, dynamic>?)?.map(
             (k, e) => MapEntry(k, e as String),
@@ -48,6 +53,7 @@ Map<String, dynamic> _$$FocusTaskListImplToJson(_$FocusTaskListImpl instance) =>
       'weeklyTaskIds': instance.weeklyTaskIds,
       'monthlyTaskIds': instance.monthlyTaskIds,
       'yearlyTaskIds': instance.yearlyTaskIds,
+      'awarenessTaskIds': instance.awarenessTaskIds,
       'pendingOriginalPeriods': instance.pendingOriginalPeriods,
       'updatedAt': instance.updatedAt.toIso8601String(),
     };

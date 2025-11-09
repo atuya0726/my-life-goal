@@ -16,6 +16,15 @@ class TaskListScreen extends ConsumerStatefulWidget {
 }
 
 class _TaskListScreenState extends ConsumerState<TaskListScreen> {
+  // 完了タスクの展開/折りたたみ状態
+  final Map<TaskPeriod, bool> _completedExpanded = {
+    TaskPeriod.awareness: false,
+    TaskPeriod.daily: false,
+    TaskPeriod.weekly: false,
+    TaskPeriod.monthly: false,
+    TaskPeriod.yearly: false,
+  };
+
   @override
   void initState() {
     super.initState();
@@ -57,6 +66,26 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
 
           // 小目標選択
           _buildSmallGoalSelector(chartState, taskState),
+          
+          // JUST DO IT!
+          Padding(
+            padding: const EdgeInsets.only(
+              top: DesignTokens.spaceXs,
+              right: DesignTokens.spaceMd,
+            ),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                'JUST DO IT!',
+                style: TextStyle(
+                  fontSize: DesignTokens.fontSizeBodySmall,
+                  fontWeight: DesignTokens.fontWeightBold,
+                  color: DesignTokens.foregroundSecondary.withOpacity(0.5),
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+          ),
           const SizedBox(height: DesignTokens.spaceMd),
 
           // エラーメッセージ
@@ -74,19 +103,18 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
   }
 
   Widget _buildSmallGoalSelector(chartState, taskState) {
-    // マンダラチャートから小目標リストを作成
-    final smallGoals = <SmallGoal>[];
+    // マンダラチャートから中目標と小目標の階層構造を作成
+    final middleGoalsWithSmall = <MiddleGoal>[];
     for (final middleGoal in chartState.chart.middleGoals) {
       if (middleGoal.title.isNotEmpty) {
-        for (final smallGoal in middleGoal.smallGoals) {
-          if (smallGoal.title.isNotEmpty) {
-            smallGoals.add(smallGoal);
-          }
+        final hasSmallGoals = middleGoal.smallGoals.any((SmallGoal sg) => sg.title.isNotEmpty);
+        if (hasSmallGoals) {
+          middleGoalsWithSmall.add(middleGoal);
         }
       }
     }
 
-    if (smallGoals.isEmpty) {
+    if (middleGoalsWithSmall.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spaceMd),
         child: Container(
@@ -122,6 +150,82 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
       );
     }
 
+    // 階層構造のドロップダウンアイテムを作成
+    final List<DropdownMenuItem<String>> items = [];
+    for (final middleGoal in middleGoalsWithSmall) {
+      // 中目標の色を取得
+      final middleGoalColor = DesignTokens.middleGoalColors[middleGoal.position % DesignTokens.middleGoalColors.length];
+      
+      // 中目標ヘッダー（選択不可）
+      items.add(
+        DropdownMenuItem<String>(
+          value: null,
+          enabled: false,
+          child: Row(
+            children: [
+              // 色のインジケーター
+              Container(
+                width: 12,
+                height: 12,
+                decoration: BoxDecoration(
+                  color: middleGoalColor,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: DesignTokens.spaceXs),
+              Expanded(
+                child: Text(
+                  middleGoal.title,
+                  style: const TextStyle(
+                    fontSize: DesignTokens.fontSizeBody,
+                    fontWeight: DesignTokens.fontWeightSemibold,
+                    color: DesignTokens.foregroundSecondary,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+      
+      // 小目標（インデント付き）
+      for (final smallGoal in middleGoal.smallGoals) {
+        if (smallGoal.title.isNotEmpty) {
+          items.add(
+            DropdownMenuItem<String>(
+              value: smallGoal.id,
+              child: Padding(
+                padding: const EdgeInsets.only(left: DesignTokens.spaceMd + DesignTokens.spaceXs),
+                child: Row(
+                  children: [
+                    // 小さな色のインジケーター
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: middleGoalColor,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: DesignTokens.spaceXs),
+                    Expanded(
+                      child: Text(
+                        smallGoal.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+      }
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spaceMd),
       child: Container(
@@ -155,18 +259,11 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
             ),
             dropdownColor: DesignTokens.backgroundSecondary,
             borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
-            items: smallGoals.map((smallGoal) {
-              return DropdownMenuItem<String>(
-                value: smallGoal.id,
-                child: Text(
-                  smallGoal.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              );
-            }).toList(),
+            items: items,
             onChanged: (value) {
-              ref.read(taskProvider.notifier).selectSmallGoal(value);
+              if (value != null) {
+                ref.read(taskProvider.notifier).selectSmallGoal(value);
+              }
             },
           ),
         ),
@@ -215,25 +312,57 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
     final weeklyTasks = allTasks.where((t) => t.period == TaskPeriod.weekly).toList();
     final monthlyTasks = allTasks.where((t) => t.period == TaskPeriod.monthly).toList();
     final yearlyTasks = allTasks.where((t) => t.period == TaskPeriod.yearly).toList();
+    final awarenessTasks = allTasks.where((t) => t.period == TaskPeriod.awareness).toList();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(DesignTokens.spaceMd),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildPeriodSection('1日', TaskPeriod.daily, dailyTasks),
+          _buildPeriodSection('日', TaskPeriod.daily, dailyTasks),
           const SizedBox(height: DesignTokens.spaceLg),
-          _buildPeriodSection('1週間', TaskPeriod.weekly, weeklyTasks),
+          _buildPeriodSection('週', TaskPeriod.weekly, weeklyTasks),
           const SizedBox(height: DesignTokens.spaceLg),
-          _buildPeriodSection('1月', TaskPeriod.monthly, monthlyTasks),
+          _buildPeriodSection('月', TaskPeriod.monthly, monthlyTasks),
           const SizedBox(height: DesignTokens.spaceLg),
-          _buildPeriodSection('1年', TaskPeriod.yearly, yearlyTasks),
+          _buildPeriodSection('年', TaskPeriod.yearly, yearlyTasks),
+          const SizedBox(height: DesignTokens.spaceLg),
+          _buildPeriodSection('意識', TaskPeriod.awareness, awarenessTasks),
         ],
       ),
     );
   }
 
+  // タスクの小目標情報を取得
+  Map<String, dynamic> _getSmallGoalInfo(Task task) {
+    final chartState = ref.read(mandalaChartProvider);
+    final mandalaChart = chartState.chart;
+    
+    String? smallGoalTitle;
+    Color? middleGoalColor;
+    
+    for (final middleGoal in mandalaChart.middleGoals) {
+      for (final smallGoal in middleGoal.smallGoals) {
+        if (smallGoal.id == task.smallGoalId) {
+          smallGoalTitle = smallGoal.title;
+          middleGoalColor = DesignTokens.middleGoalColors[middleGoal.position % DesignTokens.middleGoalColors.length];
+          break;
+        }
+      }
+      if (smallGoalTitle != null) break;
+    }
+    
+    return {
+      'smallGoalTitle': smallGoalTitle,
+      'middleGoalColor': middleGoalColor,
+    };
+  }
+
   Widget _buildPeriodSection(String label, TaskPeriod period, List<Task> tasks) {
+    // 完了タスクと未完了タスクを分ける
+    final activeTasks = tasks.where((t) => t.status != TaskStatus.completed).toList();
+    final completedTasks = tasks.where((t) => t.status == TaskStatus.completed).toList();
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -250,10 +379,10 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
               ),
             ),
             const SizedBox(width: DesignTokens.spaceXs),
-            // タスク数
-            if (tasks.isNotEmpty)
+            // 未完了タスク数
+            if (activeTasks.isNotEmpty)
               Text(
-                '${tasks.length}',
+                '${activeTasks.length}',
                 style: TextStyle(
                   fontSize: DesignTokens.fontSizeBodySmall,
                   color: DesignTokens.foregroundSecondary.withValues(alpha: 0.6),
@@ -270,25 +399,100 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
           ],
         ),
         const SizedBox(height: DesignTokens.spaceSm),
-        // タスクリスト
-        ...tasks.map((task) => Padding(
-              padding: const EdgeInsets.only(bottom: DesignTokens.spaceSm),
-              child: TaskCardWidget(
-                task: task,
-                onTap: () => _showEditTaskDialog(context, task),
-                onStatusChanged: (status) {
-                  ref.read(taskProvider.notifier).updateTaskStatus(task.id, status);
-                },
-                onLongPress: () => _showTaskOptionsDialog(context, task),
+        // 未完了タスクリスト
+        ...activeTasks.map((task) {
+          final smallGoalInfo = _getSmallGoalInfo(task);
+          return Padding(
+            padding: const EdgeInsets.only(bottom: DesignTokens.spaceSm),
+            child: TaskCardWidget(
+              task: task,
+              onTap: () => _showEditTaskDialog(context, task),
+              onStatusChanged: (status) {
+                ref.read(taskProvider.notifier).updateTaskStatus(task.id, status);
+              },
+              onLongPress: () => _showTaskOptionsDialog(context, task),
+              smallGoalTitle: smallGoalInfo['smallGoalTitle'],
+              middleGoalColor: smallGoalInfo['middleGoalColor'],
+            ),
+          );
+        }),
+        // 完了タスクセクション
+        if (completedTasks.isNotEmpty) ...[
+          const SizedBox(height: DesignTokens.spaceXs),
+          InkWell(
+            onTap: () {
+              setState(() {
+                _completedExpanded[period] = !(_completedExpanded[period] ?? false);
+              });
+            },
+            borderRadius: BorderRadius.circular(DesignTokens.radiusSm),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                vertical: DesignTokens.spaceXs,
+                horizontal: DesignTokens.spaceXs,
               ),
-            )),
+              child: Row(
+                children: [
+                  Icon(
+                    _completedExpanded[period] == true 
+                        ? Icons.expand_more 
+                        : Icons.chevron_right,
+                    size: 20,
+                    color: DesignTokens.foregroundSecondary.withOpacity(0.6),
+                  ),
+                  const SizedBox(width: DesignTokens.spaceXs),
+                  Text(
+                    '完了済み',
+                    style: TextStyle(
+                      fontSize: DesignTokens.fontSizeBodySmall,
+                      color: DesignTokens.foregroundSecondary.withOpacity(0.6),
+                    ),
+                  ),
+                  const SizedBox(width: DesignTokens.spaceXs),
+                  Text(
+                    '${completedTasks.length}',
+                    style: TextStyle(
+                      fontSize: DesignTokens.fontSizeBodySmall,
+                      color: DesignTokens.foregroundSecondary.withOpacity(0.4),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // 完了タスクリスト（展開時のみ表示）
+          if (_completedExpanded[period] == true) ...[
+            const SizedBox(height: DesignTokens.spaceXs),
+            ...completedTasks.map((task) {
+              final smallGoalInfo = _getSmallGoalInfo(task);
+              return Padding(
+                padding: const EdgeInsets.only(
+                  bottom: DesignTokens.spaceSm,
+                  left: DesignTokens.spaceMd,
+                ),
+                child: Opacity(
+                  opacity: 0.6,
+                  child: TaskCardWidget(
+                    task: task,
+                    onTap: () => _showEditTaskDialog(context, task),
+                    onStatusChanged: (status) {
+                      ref.read(taskProvider.notifier).updateTaskStatus(task.id, status);
+                    },
+                    onLongPress: () => _showTaskOptionsDialog(context, task),
+                    smallGoalTitle: smallGoalInfo['smallGoalTitle'],
+                    middleGoalColor: smallGoalInfo['middleGoalColor'],
+                  ),
+                ),
+              );
+            }),
+          ],
+        ],
       ],
     );
   }
 
   Future<void> _showAddTaskDialog(BuildContext context, TaskPeriod period) async {
     final titleController = TextEditingController();
-    final descriptionController = TextEditingController();
 
     // 期間から期限を自動計算
     final now = DateTime.now();
@@ -312,6 +516,10 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
         dueDate = DateTime(now.year + 1, now.month, now.day);
         periodLabel = '1年後';
         break;
+      case TaskPeriod.awareness:
+        dueDate = now; // 意識は期限なし
+        periodLabel = '意識';
+        break;
     }
 
     return showDialog(
@@ -325,28 +533,13 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
               fontWeight: DesignTokens.fontWeightSemibold,
             ),
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextField(
-                controller: titleController,
-                decoration: const InputDecoration(
-                  labelText: 'タスク名',
-                  hintText: 'タスクを入力してください',
-                ),
-                autofocus: true,
-              ),
-              const SizedBox(height: DesignTokens.spaceMd),
-              TextField(
-                controller: descriptionController,
-                decoration: const InputDecoration(
-                  labelText: '説明（オプション）',
-                  hintText: 'タスクの詳細を入力してください',
-                ),
-                maxLines: 3,
-              ),
-            ],
+          content: TextField(
+            controller: titleController,
+            decoration: const InputDecoration(
+              labelText: 'タスク名',
+              hintText: 'タスクを入力してください',
+            ),
+            autofocus: true,
           ),
           actions: [
             TextButton(
@@ -364,7 +557,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
                   title: titleController.text.trim(),
                   smallGoalId: taskState.selectedSmallGoalId!,
                   period: period,
-                  description: descriptionController.text.trim(),
+                  description: '',
                   dueDate: dueDate,
                 );
                 ref.read(taskProvider.notifier).addTask(task);
@@ -381,108 +574,56 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
   Future<void> _showEditTaskDialog(BuildContext context, Task task) async {
     final titleController = TextEditingController(text: task.title);
     final descriptionController = TextEditingController(text: task.description);
-    TaskStatus selectedStatus = task.status;
 
     return showDialog(
       context: context,
       builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: const Text(
-                'タスクを編集',
-                style: TextStyle(
-                  fontSize: DesignTokens.fontSizeH4,
-                  fontWeight: DesignTokens.fontWeightSemibold,
-                ),
+        return AlertDialog(
+          title: const Text(
+            'タスクを編集',
+            style: TextStyle(
+              fontSize: DesignTokens.fontSizeH4,
+              fontWeight: DesignTokens.fontWeightSemibold,
+            ),
+          ),
+          content: TextField(
+            controller: titleController,
+            decoration: const InputDecoration(
+              labelText: 'タスク名',
+            ),
+            autofocus: true,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('キャンセル'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.of(dialogContext).pop();
+                await _showDeleteTaskDialog(context, task);
+              },
+              child: const Text(
+                '削除',
+                style: TextStyle(color: DesignTokens.errorPrimary),
               ),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TextField(
-                      controller: titleController,
-                      decoration: const InputDecoration(
-                        labelText: 'タスク名',
-                      ),
-                    ),
-                    const SizedBox(height: DesignTokens.spaceMd),
-                    TextField(
-                      controller: descriptionController,
-                      decoration: const InputDecoration(
-                        labelText: '説明',
-                      ),
-                      maxLines: 3,
-                    ),
-                    const SizedBox(height: DesignTokens.spaceMd),
-                    const Text(
-                      'ステータス',
-                      style: TextStyle(
-                        fontSize: DesignTokens.fontSizeBody,
-                        fontWeight: DesignTokens.fontWeightSemibold,
-                      ),
-                    ),
-                    const SizedBox(height: DesignTokens.spaceXs),
-                    SegmentedButton<TaskStatus>(
-                      segments: const [
-                        ButtonSegment(
-                          value: TaskStatus.notStarted,
-                          label: Text('未着手', style: TextStyle(fontSize: DesignTokens.fontSizeBodySmall)),
-                        ),
-                        ButtonSegment(
-                          value: TaskStatus.inProgress,
-                          label: Text('進行中', style: TextStyle(fontSize: DesignTokens.fontSizeBodySmall)),
-                        ),
-                        ButtonSegment(
-                          value: TaskStatus.completed,
-                          label: Text('完了', style: TextStyle(fontSize: DesignTokens.fontSizeBodySmall)),
-                        ),
-                      ],
-                      selected: {selectedStatus},
-                      onSelectionChanged: (Set<TaskStatus> selection) {
-                        setState(() {
-                          selectedStatus = selection.first;
-                        });
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: const Text('キャンセル'),
-                ),
-                TextButton(
-                  onPressed: () {
-                    _showDeleteTaskDialog(context, task);
-                    Navigator.of(dialogContext).pop();
-                  },
-                  child: const Text(
-                    '削除',
-                    style: TextStyle(color: DesignTokens.errorPrimary),
-                  ),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    if (titleController.text.trim().isEmpty) {
-                      return;
-                    }
-                    final updatedTask = task.copyWith(
-                      title: titleController.text.trim(),
-                      description: descriptionController.text.trim(),
-                      status: selectedStatus,
-                      updatedAt: DateTime.now(),
-                    );
-                    ref.read(taskProvider.notifier).updateTask(updatedTask);
-                    Navigator.of(dialogContext).pop();
-                  },
-                  child: const Text('保存'),
-                ),
-              ],
-            );
-          },
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (titleController.text.trim().isEmpty) {
+                  return;
+                }
+                final updatedTask = task.copyWith(
+                  title: titleController.text.trim(),
+                  description: descriptionController.text.trim(),
+                  updatedAt: DateTime.now(),
+                );
+                ref.read(taskProvider.notifier).updateTask(updatedTask);
+                Navigator.of(dialogContext).pop();
+              },
+              child: const Text('保存'),
+            ),
+          ],
         );
       },
     );
@@ -517,6 +658,20 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
                     fontWeight: DesignTokens.fontWeightSemibold,
                   ),
                 ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.lightbulb_outline),
+                title: const Text('意識'),
+                onTap: () {
+                  ref.read(focusTaskProvider.notifier).addTask(task.id, FocusPeriod.awareness);
+                  Navigator.of(dialogContext).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('意識のフォーカスに追加しました'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                },
               ),
               ListTile(
                 leading: const Icon(Icons.today),

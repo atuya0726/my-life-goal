@@ -1,18 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/focus_task.dart';
-import '../../models/task.dart';
 import '../../repositories/focus_task_repository.dart';
-import '../../repositories/task_repository.dart';
 import 'focus_task_state.dart';
 
 /// フォーカスタスクNotifier
 class FocusTaskNotifier extends StateNotifier<FocusTaskState> {
   final FocusTaskRepository _repository;
-  final TaskRepository _taskRepository;
 
   FocusTaskNotifier(
     this._repository,
-    this._taskRepository,
   ) : super(const FocusTaskState()) {
     load();
   }
@@ -39,6 +35,8 @@ class FocusTaskNotifier extends StateNotifier<FocusTaskState> {
     switch (period) {
       case FocusPeriod.pending:
         return focusTasks.pendingTaskIds;
+      case FocusPeriod.awareness:
+        return focusTasks.awarenessTaskIds;
       case FocusPeriod.daily:
         return focusTasks.dailyTaskIds;
       case FocusPeriod.weekly:
@@ -61,11 +59,15 @@ class FocusTaskNotifier extends StateNotifier<FocusTaskState> {
       final weeklyIds = List<String>.from(focusTasks.weeklyTaskIds)..remove(taskId);
       final monthlyIds = List<String>.from(focusTasks.monthlyTaskIds)..remove(taskId);
       final yearlyIds = List<String>.from(focusTasks.yearlyTaskIds)..remove(taskId);
+      final awarenessIds = List<String>.from(focusTasks.awarenessTaskIds)..remove(taskId);
       
       // 指定期間に追加
       switch (period) {
         case FocusPeriod.pending:
           pendingIds.add(taskId);
+          break;
+        case FocusPeriod.awareness:
+          awarenessIds.add(taskId);
           break;
         case FocusPeriod.daily:
           dailyIds.add(taskId);
@@ -87,6 +89,7 @@ class FocusTaskNotifier extends StateNotifier<FocusTaskState> {
         weeklyTaskIds: weeklyIds,
         monthlyTaskIds: monthlyIds,
         yearlyTaskIds: yearlyIds,
+        awarenessTaskIds: awarenessIds,
         updatedAt: DateTime.now(),
       );
       await _repository.saveFocusTasks(updatedFocusTasks);
@@ -112,6 +115,7 @@ class FocusTaskNotifier extends StateNotifier<FocusTaskState> {
         weeklyTaskIds: List<String>.from(focusTasks.weeklyTaskIds)..remove(taskId),
         monthlyTaskIds: List<String>.from(focusTasks.monthlyTaskIds)..remove(taskId),
         yearlyTaskIds: List<String>.from(focusTasks.yearlyTaskIds)..remove(taskId),
+        awarenessTaskIds: List<String>.from(focusTasks.awarenessTaskIds)..remove(taskId),
         pendingOriginalPeriods: originalPeriods,
         updatedAt: DateTime.now(),
       );
@@ -153,6 +157,9 @@ class FocusTaskNotifier extends StateNotifier<FocusTaskState> {
       switch (fromPeriod) {
         case FocusPeriod.pending:
           break; // 既にチェック済み
+        case FocusPeriod.awareness:
+          updatedFocusTasks = updatedFocusTasks.copyWith(awarenessTaskIds: fromIds);
+          break;
         case FocusPeriod.daily:
           updatedFocusTasks = updatedFocusTasks.copyWith(dailyTaskIds: fromIds);
           break;
@@ -214,6 +221,9 @@ class FocusTaskNotifier extends StateNotifier<FocusTaskState> {
       switch (originalPeriod) {
         case FocusPeriod.pending:
           break; // ありえない
+        case FocusPeriod.awareness:
+          updatedFocusTasks = updatedFocusTasks.copyWith(awarenessTaskIds: toIds);
+          break;
         case FocusPeriod.daily:
           updatedFocusTasks = updatedFocusTasks.copyWith(dailyTaskIds: toIds);
           break;
@@ -234,73 +244,6 @@ class FocusTaskNotifier extends StateNotifier<FocusTaskState> {
       state = state.copyWith(focusTasks: updatedFocusTasks);
     } catch (e) {
       state = state.copyWith(errorMessage: '保留からの復帰に失敗しました: $e');
-    }
-  }
-
-  /// 小目標から全ての関連タスクを自動追加
-  Future<void> addTasksFromSmallGoal(String smallGoalId) async {
-    try {
-      // 指定されたsmallGoalIdを持つ全てのタスクを取得
-      final allTasks = await _taskRepository.getAllTasks();
-      final relatedTasks = allTasks.where(
-        (task) => task.smallGoalId == smallGoalId,
-      ).toList();
-
-      if (relatedTasks.isEmpty) {
-        throw Exception('この小目標に関連するタスクが見つかりません');
-      }
-
-      final focusTasks = state.focusTasks ?? FocusTaskList.empty();
-      
-      // 各期間のタスクIDリストを準備（既存のものをコピー）
-      final pendingIds = List<String>.from(focusTasks.pendingTaskIds);
-      final dailyIds = List<String>.from(focusTasks.dailyTaskIds);
-      final weeklyIds = List<String>.from(focusTasks.weeklyTaskIds);
-      final monthlyIds = List<String>.from(focusTasks.monthlyTaskIds);
-      final yearlyIds = List<String>.from(focusTasks.yearlyTaskIds);
-
-      // 関連タスクを期間ごとに振り分けて追加
-      for (final task in relatedTasks) {
-        // 重複チェック - 全ての期間から削除してから追加
-        pendingIds.remove(task.id);
-        dailyIds.remove(task.id);
-        weeklyIds.remove(task.id);
-        monthlyIds.remove(task.id);
-        yearlyIds.remove(task.id);
-
-        // タスクの期間に応じて適切なリストに追加
-        switch (task.period) {
-          case TaskPeriod.daily:
-            dailyIds.add(task.id);
-            break;
-          case TaskPeriod.weekly:
-            weeklyIds.add(task.id);
-            break;
-          case TaskPeriod.monthly:
-            monthlyIds.add(task.id);
-            break;
-          case TaskPeriod.yearly:
-            yearlyIds.add(task.id);
-            break;
-        }
-      }
-
-      // 更新されたフォーカスタスクリストを保存
-      final updatedFocusTasks = FocusTaskList(
-        pendingTaskIds: pendingIds,
-        dailyTaskIds: dailyIds,
-        weeklyTaskIds: weeklyIds,
-        monthlyTaskIds: monthlyIds,
-        yearlyTaskIds: yearlyIds,
-        updatedAt: DateTime.now(),
-      );
-
-      await _repository.saveFocusTasks(updatedFocusTasks);
-      state = state.copyWith(focusTasks: updatedFocusTasks);
-    } catch (e) {
-      state = state.copyWith(
-        errorMessage: '小目標からの追加に失敗しました: $e',
-      );
     }
   }
 }

@@ -1,13 +1,16 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/task.dart';
+import '../../models/focus_task.dart';
 import '../../repositories/task_repository.dart';
+import '../../providers/providers.dart';
 import 'task_state.dart';
 
 /// タスク画面のNotifier
 class TaskNotifier extends StateNotifier<TaskState> {
-  TaskNotifier(this._repository) : super(TaskState.initial());
+  TaskNotifier(this._repository, this._ref) : super(TaskState.initial());
 
   final TaskRepository _repository;
+  final Ref _ref;
 
   /// タスクを読み込む
   Future<void> load() async {
@@ -44,6 +47,11 @@ class TaskNotifier extends StateNotifier<TaskState> {
   Future<void> addTask(Task task) async {
     try {
       await _repository.saveTask(task);
+      
+      // 自動的にフォーカスタスクの保留に追加
+      final focusTaskNotifier = _ref.read(focusTaskProvider.notifier);
+      await focusTaskNotifier.addTask(task.id, FocusPeriod.pending);
+      
       await load(); // リロード
     } catch (e) {
       state = state.copyWith(
@@ -78,6 +86,11 @@ class TaskNotifier extends StateNotifier<TaskState> {
   Future<void> deleteTask(String taskId) async {
     try {
       await _repository.deleteTask(taskId);
+      
+      // フォーカスタスクからも削除
+      final focusTaskNotifier = _ref.read(focusTaskProvider.notifier);
+      await focusTaskNotifier.removeTask(taskId);
+      
       await load(); // リロード
     } catch (e) {
       state = state.copyWith(

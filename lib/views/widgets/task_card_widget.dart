@@ -11,6 +11,8 @@ class TaskCardWidget extends StatelessWidget {
     required this.onStatusChanged,
     this.onLongPress,
     this.actionButton,
+    this.smallGoalTitle,
+    this.middleGoalColor,
   });
 
   final Task task;
@@ -18,6 +20,8 @@ class TaskCardWidget extends StatelessWidget {
   final Function(TaskStatus) onStatusChanged;
   final VoidCallback? onLongPress;
   final Widget? actionButton;
+  final String? smallGoalTitle;
+  final Color? middleGoalColor;
 
   @override
   Widget build(BuildContext context) {
@@ -50,6 +54,35 @@ class TaskCardWidget extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // 小目標バッジ
+                    if (smallGoalTitle != null && smallGoalTitle!.isNotEmpty) ...[
+                      Row(
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: middleGoalColor ?? DesignTokens.borderMedium,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: DesignTokens.spaceXs),
+                          Flexible(
+                            child: Text(
+                              smallGoalTitle!,
+                              style: TextStyle(
+                                fontSize: DesignTokens.fontSizeBodySmall,
+                                color: DesignTokens.foregroundSecondary,
+                                fontWeight: DesignTokens.fontWeightMedium,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: DesignTokens.spaceXs),
+                    ],
                     Text(
                       task.title,
                       style: TextStyle(
