@@ -26,7 +26,14 @@ class _NotificationSettingsScreenState
   @override
   void initState() {
     super.initState();
-    _loadSettings();
+    _checkPermissionsAndLoad();
+  }
+
+  Future<void> _checkPermissionsAndLoad() async {
+    // 画面を開いた時に通知の許可を確認
+    await _notificationService.checkAndRequestPermissions();
+    // 設定を読み込む
+    await _loadSettings();
   }
 
   Future<void> _loadSettings() async {

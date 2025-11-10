@@ -24,32 +24,37 @@ class NotificationService {
 
   /// 初期化
   Future<void> initialize() async {
-    // タイムゾーンデータを初期化
-    tz.initializeTimeZones();
-    tz.setLocalLocation(tz.getLocation('Asia/Tokyo'));
+    try {
+      // タイムゾーンデータを初期化
+      tz.initializeTimeZones();
+      tz.setLocalLocation(tz.getLocation('Asia/Tokyo'));
 
-    // Android設定
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+      // Android設定
+      const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
 
-    // iOS設定
-    const iosSettings = DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
-    );
+      // iOS設定
+      const iosSettings = DarwinInitializationSettings(
+        requestAlertPermission: true,
+        requestBadgePermission: true,
+        requestSoundPermission: true,
+      );
 
-    const initSettings = InitializationSettings(
-      android: androidSettings,
-      iOS: iosSettings,
-    );
+      const initSettings = InitializationSettings(
+        android: androidSettings,
+        iOS: iosSettings,
+      );
 
-    await _notifications.initialize(
-      initSettings,
-      onDidReceiveNotificationResponse: _onNotificationTapped,
-    );
+      await _notifications.initialize(
+        initSettings,
+        onDidReceiveNotificationResponse: _onNotificationTapped,
+      );
 
-    // 権限をリクエスト
-    await _requestPermissions();
+      // 権限をリクエスト
+      await _requestPermissions();
+    } catch (e) {
+      print('通知の初期化に失敗しました: $e');
+      // 初期化に失敗してもアプリは続行
+    }
   }
 
   /// 権限をリクエスト
@@ -66,6 +71,44 @@ class NotificationService {
       badge: true,
       sound: true,
     );
+  }
+
+  /// 通知の許可状態を確認して、許可がなければリクエスト
+  /// @return true: 許可あり, false: 許可なし
+  Future<bool> checkAndRequestPermissions() async {
+    try {
+      // Android
+      final androidImpl =
+          _notifications.resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>();
+      if (androidImpl != null) {
+        final granted = await androidImpl.areNotificationsEnabled();
+        if (granted == false) {
+          // 許可がない場合は再度リクエスト
+          final result = await androidImpl.requestNotificationsPermission();
+          return result ?? false;
+        }
+        return granted ?? false;
+      }
+
+      // iOS
+      final iosImpl = _notifications.resolvePlatformSpecificImplementation<
+          IOSFlutterLocalNotificationsPlugin>();
+      if (iosImpl != null) {
+        // iOSの場合は直接許可状態を取得できないので、リクエストを試みる
+        final result = await iosImpl.requestPermissions(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+        return result ?? false;
+      }
+
+      return false;
+    } catch (e) {
+      print('通知の許可確認に失敗しました: $e');
+      return false;
+    }
   }
 
   /// 通知タップ時の処理
@@ -117,41 +160,46 @@ class NotificationService {
     required int hour,
     required int minute,
   }) async {
-    final now = tz.TZDateTime.now(tz.local);
-    var scheduledDate = tz.TZDateTime(
-      tz.local,
-      now.year,
-      now.month,
-      now.day,
-      hour,
-      minute,
-    );
+    try {
+      final now = tz.TZDateTime.now(tz.local);
+      var scheduledDate = tz.TZDateTime(
+        tz.local,
+        now.year,
+        now.month,
+        now.day,
+        hour,
+        minute,
+      );
 
-    // 今日の時刻が過ぎていたら明日にスケジュール
-    if (scheduledDate.isBefore(now)) {
-      scheduledDate = scheduledDate.add(const Duration(days: 1));
-    }
+      // 今日の時刻が過ぎていたら明日にスケジュール
+      if (scheduledDate.isBefore(now)) {
+        scheduledDate = scheduledDate.add(const Duration(days: 1));
+      }
 
-    await _notifications.zonedSchedule(
-      id,
-      title,
-      body,
-      scheduledDate,
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          'daily_notification',
-          '毎日の通知',
-          channelDescription: '朝と夜の定期通知',
-          importance: Importance.high,
-          priority: Priority.high,
+      await _notifications.zonedSchedule(
+        id,
+        title,
+        body,
+        scheduledDate,
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'daily_notification',
+            '毎日の通知',
+            channelDescription: '朝と夜の定期通知',
+            importance: Importance.high,
+            priority: Priority.high,
+          ),
+          iOS: DarwinNotificationDetails(),
         ),
-        iOS: DarwinNotificationDetails(),
-      ),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-      matchDateTimeComponents: DateTimeComponents.time,
-    );
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: DateTimeComponents.time,
+      );
+    } catch (e) {
+      print('通知のスケジュールに失敗しました (ID: $id): $e');
+      // スケジュールに失敗してもアプリは続行
+    }
   }
 
   /// 通知をキャンセル
@@ -169,26 +217,31 @@ class NotificationService {
 
   /// 保存された設定を読み込んで通知を再スケジュール
   Future<void> rescheduleNotifications() async {
-    final prefs = await SharedPreferences.getInstance();
+    try {
+      final prefs = await SharedPreferences.getInstance();
 
-    // 朝の通知
-    final morningEnabled = prefs.getBool(_morningEnabledKey) ?? true;
-    final morningMinutes = prefs.getInt(_morningTimeKey) ?? (7 * 60); // デフォルト7:00
-    if (morningEnabled) {
-      await scheduleMorningNotification(
-        hour: morningMinutes ~/ 60,
-        minute: morningMinutes % 60,
-      );
-    }
+      // 朝の通知
+      final morningEnabled = prefs.getBool(_morningEnabledKey) ?? true;
+      final morningMinutes = prefs.getInt(_morningTimeKey) ?? (7 * 60); // デフォルト7:00
+      if (morningEnabled) {
+        await scheduleMorningNotification(
+          hour: morningMinutes ~/ 60,
+          minute: morningMinutes % 60,
+        );
+      }
 
-    // 夜の通知
-    final eveningEnabled = prefs.getBool(_eveningEnabledKey) ?? true;
-    final eveningMinutes = prefs.getInt(_eveningTimeKey) ?? (22 * 60); // デフォルト22:00
-    if (eveningEnabled) {
-      await scheduleEveningNotification(
-        hour: eveningMinutes ~/ 60,
-        minute: eveningMinutes % 60,
-      );
+      // 夜の通知
+      final eveningEnabled = prefs.getBool(_eveningEnabledKey) ?? true;
+      final eveningMinutes = prefs.getInt(_eveningTimeKey) ?? (22 * 60); // デフォルト22:00
+      if (eveningEnabled) {
+        await scheduleEveningNotification(
+          hour: eveningMinutes ~/ 60,
+          minute: eveningMinutes % 60,
+        );
+      }
+    } catch (e) {
+      print('通知の再スケジュールに失敗しました: $e');
+      // 再スケジュールに失敗してもアプリは続行
     }
   }
 

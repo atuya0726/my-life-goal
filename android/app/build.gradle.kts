@@ -53,6 +53,9 @@ android {
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("release")
+            // コード最適化を無効化（flutter_local_notificationsの型情報を保持）
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
     
