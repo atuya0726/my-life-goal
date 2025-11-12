@@ -6,3 +6,4 @@ abstract class FocusTaskRepository {
   Future<void> saveFocusTasks(FocusTaskList focusTasks);
 }
 
+

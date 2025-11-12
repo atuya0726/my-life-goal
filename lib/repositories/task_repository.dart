@@ -27,3 +27,4 @@ abstract class TaskRepository {
   Future<void> deleteAllTasks();
 }
 
+

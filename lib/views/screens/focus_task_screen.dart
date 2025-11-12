@@ -17,13 +17,22 @@ class FocusTaskScreen extends ConsumerStatefulWidget {
 }
 
 class _FocusTaskScreenState extends ConsumerState<FocusTaskScreen> {
+  // 通常セクションの展開/折りたたみ状態
+  final Map<FocusPeriod, bool> _periodExpanded = {
+    FocusPeriod.awareness: true,
+    FocusPeriod.daily: true,
+    FocusPeriod.weekly: false,   // 週はデフォルトで閉じる
+    FocusPeriod.monthly: false,  // 月はデフォルトで閉じる
+    FocusPeriod.yearly: false,   // 年はデフォルトで閉じる
+  };
+
   // 保留セクションの展開/折りたたみ状態
   final Map<TaskPeriod, bool> _pendingExpanded = {
     TaskPeriod.awareness: true,
     TaskPeriod.daily: true,
-    TaskPeriod.weekly: true,
-    TaskPeriod.monthly: true,
-    TaskPeriod.yearly: true,
+    TaskPeriod.weekly: false,    // 週はデフォルトで閉じる
+    TaskPeriod.monthly: false,   // 月はデフォルトで閉じる
+    TaskPeriod.yearly: false,    // 年はデフォルトで閉じる
   };
 
   @override
@@ -296,69 +305,111 @@ class _FocusTaskScreenState extends ConsumerState<FocusTaskScreen> {
     List<Task> tasks,
   ) {
     final periodRange = _getPeriodRange(period);
+    final isExpanded = _periodExpanded[period] ?? false;
     
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // セクションヘッダー
-        Row(
-          children: [
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: DesignTokens.fontSizeBody,
-                fontWeight: DesignTokens.fontWeightSemibold,
-                color: DesignTokens.foregroundPrimary,
-              ),
+        // トグル可能なセクションヘッダー
+        InkWell(
+          onTap: () {
+            setState(() {
+              _periodExpanded[period] = !isExpanded;
+            });
+          },
+          borderRadius: BorderRadius.circular(DesignTokens.radiusSm),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              vertical: DesignTokens.spaceXs,
+              horizontal: DesignTokens.spaceXs,
             ),
-            const SizedBox(width: DesignTokens.spaceXs),
-            if (tasks.isNotEmpty)
-              Text(
-                '${tasks.length}',
-                style: TextStyle(
-                  fontSize: DesignTokens.fontSizeBodySmall,
-                  color: DesignTokens.foregroundSecondary.withValues(alpha: 0.6),
+            child: Row(
+              children: [
+                Icon(
+                  isExpanded ? Icons.expand_more : Icons.chevron_right,
+                  size: 20,
+                  color: DesignTokens.foregroundSecondary,
                 ),
-              ),
-            if (periodRange.isNotEmpty) ...[
-              const SizedBox(width: DesignTokens.spaceXs),
-              Text(
-                '($periodRange)',
-                style: TextStyle(
-                  fontSize: DesignTokens.fontSizeBodySmall,
-                  color: DesignTokens.foregroundSecondary.withValues(alpha: 0.5),
+                const SizedBox(width: DesignTokens.spaceXs),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: DesignTokens.fontSizeBody,
+                    fontWeight: DesignTokens.fontWeightSemibold,
+                    color: DesignTokens.foregroundPrimary,
+                  ),
                 ),
-              ),
-            ],
-          ],
-        ),
-        const SizedBox(height: DesignTokens.spaceSm),
-        // タスクリスト
-        if (tasks.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: DesignTokens.spaceXs),
-            child: Text(
-              'タスクなし',
-              style: TextStyle(
-                fontSize: DesignTokens.fontSizeBodySmall,
-                color: DesignTokens.foregroundSecondary.withValues(alpha: 0.4),
-              ),
+                const SizedBox(width: DesignTokens.spaceXs),
+                if (tasks.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: DesignTokens.spaceXs,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: DesignTokens.foregroundSecondary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(DesignTokens.radiusSm),
+                    ),
+                    child: Text(
+                      '${tasks.length}',
+                      style: const TextStyle(
+                        fontSize: DesignTokens.fontSizeBodySmall,
+                        fontWeight: DesignTokens.fontWeightMedium,
+                        color: DesignTokens.foregroundSecondary,
+                      ),
+                    ),
+                  ),
+                if (periodRange.isNotEmpty) ...[
+                  const SizedBox(width: DesignTokens.spaceXs),
+                  Text(
+                    '($periodRange)',
+                    style: TextStyle(
+                      fontSize: DesignTokens.fontSizeBodySmall,
+                      color: DesignTokens.foregroundSecondary.withValues(alpha: 0.5),
+                    ),
+                  ),
+                ],
+              ],
             ),
-          )
-        else
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: tasks.length,
-            itemBuilder: (context, index) {
-              final task = tasks[index];
-              final smallGoalInfo = _getSmallGoalInfo(task);
-              return Padding(
-                padding: const EdgeInsets.only(bottom: DesignTokens.spaceSm),
-                child: _buildDismissibleTaskCard(task, period, smallGoalInfo),
-              );
-            },
           ),
+        ),
+        
+        // タスクリスト（展開時のみ表示）
+        if (isExpanded) ...[
+          const SizedBox(height: DesignTokens.spaceXs),
+          if (tasks.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(
+                left: DesignTokens.spaceMd,
+                top: DesignTokens.spaceXs,
+                bottom: DesignTokens.spaceXs,
+              ),
+              child: Text(
+                'タスクなし',
+                style: TextStyle(
+                  fontSize: DesignTokens.fontSizeBodySmall,
+                  color: DesignTokens.foregroundSecondary.withValues(alpha: 0.4),
+                ),
+              ),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.only(left: DesignTokens.spaceMd),
+              child: ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: tasks.length,
+                itemBuilder: (context, index) {
+                  final task = tasks[index];
+                  final smallGoalInfo = _getSmallGoalInfo(task);
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: DesignTokens.spaceSm),
+                    child: _buildDismissibleTaskCard(task, period, smallGoalInfo),
+                  );
+                },
+              ),
+            ),
+        ],
       ],
     );
   }
